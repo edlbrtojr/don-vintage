@@ -72,7 +72,10 @@ body.has-bottombar { padding-bottom: calc(76px + var(--safe-bottom)); }
     radial-gradient(ellipse 120% 80% at 50% 50%, transparent 40%, var(--shade) 100%),
     /* listras diagonais finas lembrando o poste, quase invisíveis */
     repeating-linear-gradient(-45deg, var(--line-soft) 0 1px, transparent 1px 22px),
-    linear-gradient(180deg, var(--bg-2), var(--bg) 70%);
+    /* foto real do salão (Instagram) bem escurecida: dá clima sem competir com o logo */
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 62%, transparent), var(--bg) 96%),
+    url('../img/hero.jpg') center 30% / cover no-repeat,
+    var(--bg);
 }
 .hero-in {
   position: relative; display: flex; align-items: center; justify-content: center;
@@ -336,3 +339,15 @@ body.has-bottombar { padding-bottom: calc(76px + var(--safe-bottom)); }
 /* Revelação suave ao rolar */
 .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
 .reveal.in { opacity: 1; transform: none; }
+
+/* Galeria — recortes sem texto das colagens do Instagram */
+.gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 22px; }
+.g-item { margin: 0; border-radius: var(--r-sm); overflow: hidden; aspect-ratio: 4 / 5; background: var(--surface); }
+.g-item img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s; }
+.g-item:hover img { transform: scale(1.04); }
+.g-wide { grid-column: span 2; aspect-ratio: 16 / 10; }
+.g-insta { display: flex; margin: 18px auto 0; max-width: 320px; }
+@media (min-width: 760px) {
+  .gallery { grid-template-columns: repeat(4, 1fr); }
+  .g-wide { grid-row: span 2; aspect-ratio: auto; }
+}

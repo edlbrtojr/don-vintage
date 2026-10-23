@@ -12,6 +12,11 @@ const PRECO = {
   implantacao: 15000,
   parcelasPorFase: 3,
   mensalidade: 990,
+  // Margem do fornecedor sobre cada cobrança, recebida via split do Asaas (walletId próprio).
+  // Aparece como linha separada, não embutida na taxa do Asaas, porque a tabela do Asaas é pública
+  // e o dono pode conferir. Cada 0,1% ≈ R$ 0,19 por assinante; com 150 assinantes a economia
+  // mostrada (~R$ 320/mês) só zera perto de 1,1%.
+  taxaPlataforma: 0.001,
 };
 
 /* Tabelas públicas usadas na calculadora (research/precos.json). */
@@ -61,7 +66,9 @@ document.getElementById('invest-inc').innerHTML = [
   'Hospedagem, domínio donvintage.com.br e certificado',
   'Suporte por WhatsApp e treinamento da equipe',
   'Atualizações e melhorias contínuas',
-  'Sem taxa por assinante, sem limite de unidades',
+  PRECO.taxaPlataforma
+    ? `Taxa da plataforma de só ${(PRECO.taxaPlataforma * 100).toLocaleString('pt-BR')}% por cobrança, sem valor fixo`
+    : 'Sem taxa por assinante, sem limite de unidades',
 ].map(t => `<li>${t}</li>`).join('');
 
 /* Calculadora hoje x proposta */
@@ -70,9 +77,10 @@ function custos(n) {
   const [, pct, fixo] = CASH_FAIXAS.find(([min]) => n >= min);
   const taxaCash = n * (PLANO_CLUBE * pct + fixo);
   const taxaAsaas = n * (PLANO_CLUBE * ASAAS.pct + ASAAS.fixo);
+  const taxaPlat = n * PLANO_CLUBE * (PRECO.taxaPlataforma || 0);
   return {
     hoje: CASH_FULL + taxaCash, taxaCash, pctCash: pct, fixoCash: fixo,
-    nos: (PRECO.mensalidade || 0) + taxaAsaas, taxaAsaas,
+    nos: (PRECO.mensalidade || 0) + taxaAsaas + taxaPlat, taxaAsaas, taxaPlat,
   };
 }
 function renderCalc() {
@@ -88,7 +96,8 @@ function renderCalc() {
     <li><span>Taxa ${pctTxt(c.pctCash)} + ${DV.fmt.brl(c.fixoCash)}</span><b>${brl0(c.taxaCash)}</b></li>`;
   document.getElementById('calc-nos-det').innerHTML = `
     <li><span>Sistema Don Vintage</span><b>${brl0(PRECO.mensalidade || 0)}</b></li>
-    <li><span>Asaas ${pctTxt(ASAAS.pct)} + ${DV.fmt.brl(ASAAS.fixo)}</span><b>${brl0(c.taxaAsaas)}</b></li>`;
+    <li><span>Asaas ${pctTxt(ASAAS.pct)} + ${DV.fmt.brl(ASAAS.fixo)}</span><b>${brl0(c.taxaAsaas)}</b></li>
+    ${PRECO.taxaPlataforma ? `<li><span>Plataforma ${pctTxt(PRECO.taxaPlataforma)}</span><b>${brl0(c.taxaPlat)}</b></li>` : ''}`;
   const eco = c.hoje - c.nos;
   document.getElementById('calc-eco').textContent = eco > 0 ? `${brl0(eco)}/mês · ${brl0(eco * 12)}/ano` : 'empata';
 }
