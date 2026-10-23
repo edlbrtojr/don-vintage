@@ -22,7 +22,17 @@
   // Antecedência mínima para horários de hoje: evita marcar um slot que começa enquanto o cliente ainda digita.
   const MIN_LEAD_MIN = 30;
   const SLOT = 15;
-  const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  // pathLength="1" deixa o CSS desenhar o traço com stroke-dasharray: 1 sem medir o path.
+  const CHECK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const IC_INFO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>';
+  const IC_LOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
+  const SEAL_OK = '<svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><circle pathLength="1" cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3" transform="rotate(-90 50 50)"/><path pathLength="1" d="M30 52l13 13 27-29" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Saída da etapa antiga antes de montar a nova; casa com --step-out em agendar.css.
+  const STEP_OUT_MS = 180;
+  // Envio simulado do botão de confirmar: curto o bastante para não parecer travado,
+  // longo o bastante para o spinner ser lido como "trabalho de verdade".
+  const SUBMIT_MS = 700;
+  const motion = DV.motion || { countUp: (el, to, fmt) => { el.textContent = fmt(to); }, haptic() {}, reduced: () => false };
 
   /* ---------- Tempo de Rio Branco ----------
      A agenda é no horário do Acre (UTC-5, sem horário de verão desde 2019), não no do
@@ -148,6 +158,18 @@
     return null;
   }
 
+  /* ---------- Validação por campo ----------
+     Cada chave é o data-in do input; a mensagem vai no <p id="e-chave"> ligado por aria-describedby. */
+  const V = {
+    name: () => S.name.trim().length < 2 ? 'Informe seu nome' : '',
+    phone: () => phoneDigits().length !== 11 ? 'Informe o WhatsApp com DDD (11 dígitos)' : '',
+    ccnum: () => S.card.num.replace(/\D/g, '').length !== 16 ? 'O número tem 16 dígitos' : '',
+    ccexp: () => { const d = S.card.exp.replace(/\D/g, ''); const m = Number(d.slice(0, 2)); return d.length !== 4 || m < 1 || m > 12 ? 'Use o formato MM/AA' : ''; },
+    cccvv: () => S.card.cvv.length < 3 ? '3 ou 4 dígitos' : '',
+    ccholder: () => S.card.holder.trim().length < 2 ? 'Nome como está no cartão' : '',
+  };
+  const CARD_FIELDS = ['ccnum', 'ccexp', 'cccvv', 'ccholder'];
+
   /* ---------- Validação por etapa ---------- */
   function check(id) {
     switch (id) {
@@ -158,15 +180,9 @@
         return '';
       case 'profissional': return S.barber ? '' : 'Escolha um profissional';
       case 'horario': return S.date && S.time != null ? '' : 'Escolha o dia e o horário';
-      case 'dados':
-        if (S.name.trim().length < 2) return 'Informe seu nome';
-        if (phoneDigits().length !== 11) return 'Informe o WhatsApp com DDD';
-        return '';
+      case 'dados': return V.name() || V.phone();
       case 'pagamento':
-        if (S.mode === 'plan' && S.planPay === 'card') {
-          const c = S.card;
-          if (c.num.replace(/\D/g, '').length !== 16 || c.exp.replace(/\D/g, '').length !== 4 || c.cvv.length < 3 || c.holder.trim().length < 2) return 'Preencha os dados do cartão';
-        }
+        if (S.mode === 'plan' && S.planPay === 'card' && CARD_FIELDS.some(k => V[k]())) return 'Confira os dados do cartão';
         return S.mode === 'plan' || S.pay ? '' : 'Escolha a forma de pagamento';
       default: return '';
     }
@@ -185,15 +201,18 @@
   /* ---------- Etapas ---------- */
   const R = {};
 
+  // aria-pressed acompanha a classe .on em toda opção selecionável (leitor de tela ouve "selecionado").
+  const pressed = (on) => `aria-pressed="${on ? 'true' : 'false'}"`;
+  const optCls = (on) => `opt ${on ? 'on' : ''}`;
+
+  // Sem subtítulo: o endereço e a nota de cada unidade já dizem tudo; a missão da marca aqui só atrasava.
   R.unidade = () => `
-    <h1 class="h-step">Qual unidade?</h1>
-    <p class="sub">${esc(B.mission || 'Escolha onde quer ser atendido.')}</p>
-    <div class="opts">${units.map(u => `
-      <button class="opt ${S.unit === u.id ? 'on' : ''}" data-act="unit" data-id="${esc(u.id)}">
-        <span class="pin">DV</span>
-        <span class="opt-main"><b>${esc(u.name)}</b><small>${esc(u.address || '')}</small>
-          ${u.rating ? `<small class="brass">★ ${Number(u.rating).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}${u.reviewsCount ? ` · ${u.reviewsCount} avaliações` : ''}</small>` : ''}</span>
+    <h1 class="h-step" tabindex="-1">Qual unidade?</h1>
+    <div class="opts" style="margin-top:20px">${units.map(u => `
+      <button class="${optCls(S.unit === u.id)}" data-act="unit" data-id="${esc(u.id)}" ${pressed(S.unit === u.id)}>
         <span class="check">${CHECK}</span>
+        <span class="opt-main"><b>${esc(u.name)}</b><small>${esc(u.address || '')}</small></span>
+        ${u.rating ? `<span class="opt-side"><b><span class="star" aria-hidden="true">★</span> ${Number(u.rating).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}</b>${u.reviewsCount ? `<small>${u.reviewsCount} no Google</small>` : ''}</span>` : ''}
       </button>`).join('')}
     </div>`;
 
@@ -205,50 +224,54 @@
   function svcList() {
     const b = S.barber && S.barber !== 'any' ? barberById(S.barber) : null;
     const list = S.cat === 'Mais pedidos' ? FEATURED.map(svcById).filter(Boolean) : DV.services.filter(s => (s.category || 'Outros') === S.cat);
+    // Selo do clube só quando a lista mistura serviços do plano e fora dele: em "Mais pedidos"
+    // todos são do plano e o selo repetido em toda linha virava ruído. Lá a nota abaixo da lista explica.
+    const mixed = list.some(s => s.inPlan) && list.some(s => !s.inPlan);
     return list.map(s => {
       const no = b && !(b.services || []).includes(s.id);
-      return `<button class="opt ${S.services.includes(s.id) ? 'on' : ''}" data-act="svc" data-id="${esc(s.id)}" ${no ? 'disabled' : ''}>
+      const on = S.services.includes(s.id);
+      return `<button class="${optCls(on)}" data-act="svc" data-id="${esc(s.id)}" ${pressed(on)} ${no ? 'disabled' : ''}>
         <span class="check sq">${CHECK}</span>
-        <span class="opt-main"><b>${esc(s.name)}</b><small>${no ? `${esc(b.name)} não realiza este serviço` : esc(s.description || '')}</small>
-          ${S.subscriber ? '' : s.inPlan ? `<small class="brass">Incluso no ${esc(clubName)}</small>` : ''}</span>
+        <span class="opt-main"><b>${esc(s.name)}${!S.subscriber && s.inPlan && mixed ? ` <span class="tag">No ${esc(clubName)}</span>` : ''}</b><small>${no ? `${esc(b.name)} não realiza este serviço` : esc(s.description || '')}</small></span>
         <span class="opt-side">${priceTag(s)}</span>
       </button>`;
-    }).join('');
+    }).join('') + (!S.subscriber && list.length && list.every(s => s.inPlan) ? `<p class="note">Todos ilimitados no ${esc(clubName)}.</p>` : '');
   }
   function catChips() {
     return svcCats().map(c => {
       const n = c === 'Mais pedidos' ? S.services.filter(id => FEATURED.includes(id)).length : selSvcs().filter(s => (s.category || 'Outros') === c).length;
-      return `<button class="chip-btn ${S.cat === c ? 'on' : ''}" data-act="cat" data-id="${esc(c)}">${esc(c)}${n ? ` · ${n}` : ''}</button>`;
+      return `<button class="chip-btn ${S.cat === c ? 'on' : ''}" data-act="cat" data-id="${esc(c)}" ${pressed(S.cat === c)}>${esc(c)}${n ? ` · ${n}` : ''}</button>`;
     }).join('');
   }
   R.servicos = () => {
     const b = S.barber && S.barber !== 'any' ? barberById(S.barber) : null;
     return `
-    <h1 class="h-step">O que vamos fazer?</h1>
-    <p class="sub">Escolha um ou mais serviços${units.length > 1 ? ` · Unidade ${esc(unit().name)}` : ''}.</p>
-    ${b ? `<div class="banner">${avatar(b, 36)}<span>Agendando com <b>${esc(b.name)}</b></span><button data-act="clearBarber">Trocar</button></div>` : ''}
-    ${S.subscriber ? `<div class="banner"><span>✦ Preços de assinante ${esc((subPlan() || {}).name || clubName)}</span></div>` : ''}
+    <h1 class="h-step" tabindex="-1">O que vamos fazer?</h1>
+    <p class="sub">${units.length > 1 ? `Unidade ${esc(unit().name)}. ` : ''}Pode somar serviços.</p>
+    ${b ? `<div class="banner">${avatar(b, 36)}<span>Com <b>${esc(b.name)}</b></span><button data-act="clearBarber">Trocar</button></div>` : ''}
+    ${S.subscriber ? `<div class="banner">${CHECK.replace('width="14" height="14"', 'width="18" height="18"')}<span>Preços de assinante ${esc((subPlan() || {}).name || clubName)}</span></div>` : ''}
     <div class="days cats" id="cats">${catChips()}</div>
-    <div class="opts" id="svcList" style="margin-top:8px">${svcList()}</div>`;
+    <div class="opts" id="svcList">${svcList()}</div>`;
   };
 
   R.profissional = () => {
     const el = eligible(); const out = unitBarbers().length - el.length;
     const any = el.length > 1 ? `
-      <button class="opt ${S.barber === 'any' ? 'on' : ''}" data-act="barber" data-id="any">
+      <button class="${optCls(S.barber === 'any')}" data-act="barber" data-id="any" ${pressed(S.barber === 'any')}>
         <span class="any-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5M14.5 14.6c2.6-.4 4.9 1.1 5.6 4.4"/></svg></span>
         <span class="opt-main"><b>Sem preferência</b><small>Primeiro horário disponível</small></span>
         <span class="check">${CHECK}</span>
       </button>` : '';
     return `
-    <h1 class="h-step">Com quem?</h1>
-    <p class="sub">Profissionais da unidade ${esc(unit().name)} que fazem ${S.services.length > 1 ? 'todos os serviços escolhidos' : esc((selSvcs()[0] || {}).name || 'o serviço')}.</p>
+    <h1 class="h-step" tabindex="-1">Com quem?</h1>
+    <p class="sub">${esc(selSvcs().map(s => s.name).join(' + '))} · ${dur(totalDur())}</p>
     <div class="opts">${any}${el.map(b => {
-      const nf = nextFree(b.id);
-      return `<button class="opt ${S.barber === b.id ? 'on' : ''}" data-act="barber" data-id="${esc(b.id)}">
+      const nf = nextFree(b.id); const on = S.barber === b.id;
+      // Sem "Barbeiro" em cada linha (repetia igual em todas); o que diferencia é o próximo horário.
+      return `<button class="${optCls(on)}" data-act="barber" data-id="${esc(b.id)}" ${pressed(on)}>
         ${avatar(b)}
-        <span class="opt-main"><b>${esc(b.name)}</b><small>${esc(b.role || 'Barbeiro')}</small>
-          ${nf ? `<small><span class="chip ok" style="margin-top:4px">Próximo: ${esc(nf)}</span></small>` : '<small class="muted">Sem horários nos próximos 14 dias</small>'}</span>
+        <span class="opt-main"><b>${esc(b.name)}${b.featured ? ' <span class="tag">Destaque</span>' : ''}</b>
+          ${nf ? `<small class="next">Próximo: ${esc(nf)}</small>` : '<small>Sem horários nos próximos 14 dias</small>'}</span>
         <span class="check">${CHECK}</span>
       </button>`;
     }).join('')}</div>
@@ -260,10 +283,12 @@
     const list = slotsFor(S.date);
     if (!list.length) return `<div class="empty"><b>Sem horários neste dia</b>Tente outro dia ou outro profissional.</div>`;
     const groups = [['Manhã', 0, 720], ['Tarde', 720, 1080], ['Noite', 1080, 1440]];
+    // --i escalona a entrada; teto de 12 mantém a cascata inteira em ~300ms (ver .slot no CSS).
+    let n = 0;
     return groups.map(([g, a, z]) => {
       const it = list.filter(m => m >= a && m < z); if (!it.length) return '';
       return `<div class="slot-group"><h4 class="label">${g}<small>${it.length} horário${it.length > 1 ? 's' : ''}</small></h4>
-        <div class="slots">${it.map(m => `<button class="slot ${S.time === m ? 'on' : ''}" data-act="slot" data-m="${m}">${hhmm(m)}</button>`).join('')}</div></div>`;
+        <div class="slots">${it.map(m => `<button class="slot ${S.time === m ? 'on' : ''}" data-act="slot" data-m="${m}" ${pressed(S.time === m)} style="--i:${Math.min(n++, 12)}">${hhmm(m)}</button>`).join('')}</div></div>`;
     }).join('');
   }
   R.horario = () => {
@@ -271,31 +296,34 @@
       const k = keyOf(d); const h = B.hours && B.hours[d.getUTCDay()];
       const n = h ? slotsFor(k).length : 0;
       const tag = !h ? 'fechado' : n ? (k === todayKey() ? 'hoje' : `${n} livres`) : (k === todayKey() ? 'encerrado' : 'lotado');
-      return `<button class="day ${S.date === k ? 'on' : ''}" data-act="day" data-k="${k}" ${n ? '' : 'disabled'} aria-label="${esc(dayLabel(k, true))}${n ? '' : ' — ' + tag}">
+      return `<button class="day ${S.date === k ? 'on' : ''}" data-act="day" data-k="${k}" ${pressed(S.date === k)} ${n ? '' : 'disabled'} aria-label="${esc(dayLabel(k, true))}${n ? '' : ', ' + tag}">
         <span>${WD[d.getUTCDay()]}</span><b>${d.getUTCDate()}</b><em>${n ? (k === todayKey() ? 'hoje' : MO[d.getUTCMonth()]) : tag}</em></button>`;
     }).join('');
     const who = S.barber === 'any' ? 'qualquer profissional' : barberName(S.barber);
     return `
-    <h1 class="h-step">Quando?</h1>
-    <p class="sub">${dur(totalDur())} com ${esc(who)} · horário de Rio Branco.</p>
+    <h1 class="h-step" tabindex="-1">Quando?</h1>
+    <p class="sub">${dur(totalDur())} com ${esc(who)}. Horário de Rio Branco.</p>
     <div class="days" id="days">${ds}</div>
     <p class="day-title" id="dayTitle">${S.date ? esc(dayLabel(S.date, true)) : ''}</p>
     <div id="slots">${slotsHTML()}</div>`;
   };
 
+  // Campo com rótulo visível, erro logo abaixo e ligado por aria-describedby (o shake vem do base.css).
+  const field = (k, label, attrs, val) => `
+      <div class="field"><label class="label" for="f-${k}">${label}</label>
+        <input class="input" id="f-${k}" data-in="${k}" aria-describedby="e-${k}" ${attrs} value="${esc(val)}">
+        <p class="err" id="e-${k}"></p></div>`;
+
   R.dados = () => `
-    <h1 class="h-step">${S.mode === 'plan' ? 'Quem vai assinar?' : 'Quase lá'}</h1>
-    <p class="sub">${S.mode === 'plan' ? 'Seus dados para a assinatura e os recibos mensais.' : 'Para confirmar e lembrar você do horário.'}</p>
+    <h1 class="h-step" tabindex="-1">${S.mode === 'plan' ? 'Quem vai assinar?' : 'Quase lá'}</h1>
+    <p class="sub">${S.mode === 'plan' ? 'Para a assinatura e os recibos mensais.' : 'Para confirmar e lembrar você do horário.'}</p>
     <div class="form">
-      <label class="field"><span class="label">Nome</span>
-        <input class="input" id="fName" data-in="name" autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="Como podemos te chamar?" value="${esc(S.name)}"></label>
-      <label class="field"><span class="label">WhatsApp</span>
-        <input class="input" id="fPhone" data-in="phone" type="tel" inputmode="numeric" autocomplete="tel-national" enterkeyhint="done" placeholder="(68) 99999-9999" value="${esc(S.phone)}" maxlength="15"></label>
-      <p class="err" id="fErr"></p>
+      ${field('name', 'Nome', 'autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="Como podemos te chamar?"', S.name)}
+      ${field('phone', 'WhatsApp', 'type="tel" inputmode="numeric" autocomplete="tel-national" enterkeyhint="done" placeholder="(68) 99999-9999" maxlength="15"', S.phone)}
       ${S.mode === 'book' && DV.plans.length ? `
-      <label class="toggle"><span class="tg-main"><b>Já sou assinante do ${esc(clubName)}</b><small>Serviços do plano saem R$ 0,00 · 10% OFF nos demais</small></span>
+      <label class="toggle"><span class="tg-main"><b>Já sou assinante do ${esc(clubName)}</b><small>Serviços do plano saem R$ 0,00 e 10% OFF nos demais</small></span>
         <input type="checkbox" data-in="subscriber" ${S.subscriber ? 'checked' : ''}><span class="sw"></span></label>
-      ${S.subscriber && DV.plans.length > 1 ? `<div class="chips-sel">${DV.plans.map(p => `<button class="chip-btn ${S.subPlan === p.id ? 'on' : ''}" data-act="subPlan" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>` : ''}` : ''}
+      ${S.subscriber && DV.plans.length > 1 ? `<div class="chips-sel">${DV.plans.map(p => `<button class="chip-btn ${S.subPlan === p.id ? 'on' : ''}" data-act="subPlan" data-id="${esc(p.id)}" ${pressed(S.subPlan === p.id)}>${esc(p.name)}</button>`).join('')}</div>` : ''}` : ''}
       <label class="toggle"><span class="tg-main"><b>Lembrete pelo WhatsApp</b><small>${S.mode === 'plan' ? 'Recibo e aviso de renovação' : 'Avisamos 2h antes do horário'}</small></span>
         <input type="checkbox" data-in="reminder" ${S.reminder ? 'checked' : ''}><span class="sw"></span></label>
       <p class="privacy">Usamos seus dados só para o atendimento. Nada de spam.</p>
@@ -313,11 +341,17 @@
   function pixPanel(amount, ref, recurring) {
     return `<div class="pix" id="pix">
       <div class="qr">${qrSVG(ref)}<span class="qr-tag">Demonstração</span></div>
-      <p class="timer">${recurring ? 'Autorize o <b>Pix Automático</b> no app do seu banco' : `Pague em até <b id="pixTimer">10:00</b> · ${brl(amount)}`}</p>
-      <div class="copy-box"><code id="pixCode">${esc(pixCode(amount, ref))}</code><button class="btn btn-ghost" data-act="copy">Copiar</button></div>
-      <span class="asaas"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>Cobrança processada pelo Asaas · QR fictício, não pague</span>
+      <p class="timer">${recurring ? 'Autorize o <b>Pix Automático</b> no app do seu banco' : `Pague <b>${brl(amount)}</b> em até <b id="pixTimer">10:00</b>`}</p>
+      <div class="copy-box" id="copyBox"><code id="pixCode">${esc(pixCode(amount, ref))}</code><button class="btn btn-ghost" data-act="copy" aria-live="polite">Copiar</button></div>
+      <span class="asaas">${IC_LOCK}Processado pelo Asaas. QR fictício, não pague.</span>
     </div>`;
   }
+
+  const IC_PIX = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l4 4-4 4-4-4 4-4zM12 13l4 4-4 4-4-4 4-4zM3 12l4-4 4 4-4 4-4-4zM13 12l4-4 4 4-4 4-4-4z"/></svg>';
+  const payOpt = (act, on, id, ic, title, small) => `
+      <button class="${optCls(on)}" data-act="${act}" data-id="${id}" ${pressed(on)}>
+        <span class="pay-ic">${ic}</span><span class="opt-main"><b>${title}</b><small>${small}</small></span><span class="check">${CHECK}</span>
+      </button>`;
 
   R.pagamento = () => {
     if (S.mode === 'plan') return planPayment();
@@ -325,20 +359,16 @@
     if (S.pay === 'plan' && !S.subscriber) S.pay = null;
     if ((S.pay === 'pix' || S.pay === 'local') && t === 0) S.pay = null;
     if (!S.pay) S.pay = S.subscriber ? 'plan' : 'local';
-    const opt = (id, ic, title, small) => `
-      <button class="opt ${S.pay === id ? 'on' : ''}" data-act="pay" data-id="${id}">
-        <span class="pay-ic">${ic}</span><span class="opt-main"><b>${title}</b><small>${small}</small></span><span class="check">${CHECK}</span>
-      </button>`;
+    const opt = (id, ic, title, small) => payOpt('pay', S.pay === id, id, ic, title, small);
     const icShop = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 10h16l-1-5H5l-1 5zM5 10v9h14v-9M10 19v-5h4v5"/></svg>';
-    const icPix = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l4 4-4 4-4-4 4-4zM12 13l4 4-4 4-4-4 4-4zM3 12l4-4 4 4-4 4-4-4zM13 12l4-4 4 4-4 4-4-4z"/></svg>';
     const icClub = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>';
     return `
-    <h1 class="h-step">Como prefere pagar?</h1>
-    <p class="sub">${esc(selSvcs().map(s => s.name).join(' + '))} · ${esc(dayLabel(S.date))} às ${hhmm(S.time)}</p>
+    <h1 class="h-step" tabindex="-1">Como prefere pagar?</h1>
+    <p class="sub">${esc(selSvcs().map(s => s.name).join(' + '))}. ${esc(dayLabel(S.date))} às ${hhmm(S.time)}.</p>
     <div class="total-row"><span class="label">Total${S.subscriber && t < fullTotal() ? ` <s class="muted">${brl(fullTotal())}</s>` : ''}</span><b>${brl(t)}</b></div>
     <div class="opts">
-      ${S.subscriber ? opt('plan', icClub, `Usar meu plano${sp ? ' · ' + esc(sp.name) : ''}`, t > 0 ? `Plano cobre os serviços inclusos · ${brl(t)} restante na barbearia` : 'Tudo coberto pela assinatura · R$ 0,00 hoje') : ''}
-      ${t > 0 ? opt('pix', icPix, 'Pix agora', 'Via Asaas · confirmação na hora') : ''}
+      ${S.subscriber ? opt('plan', icClub, `Usar meu plano${sp ? ' ' + esc(sp.name) : ''}`, t > 0 ? `Cobre os serviços inclusos. ${brl(t)} restante na barbearia` : 'Tudo coberto pela assinatura, R$ 0,00 hoje') : ''}
+      ${t > 0 ? opt('pix', IC_PIX, 'Pix agora', 'Via Asaas, confirmação na hora') : ''}
       ${t > 0 ? opt('local', icShop, 'Pagar na barbearia', 'Dinheiro, cartão ou Pix no balcão') : ''}
     </div>
     ${S.pay === 'pix' ? pixPanel(t, refCode()) : ''}`;
@@ -351,33 +381,30 @@
 
   function planPayment() {
     const p = planById(S.planId); const c = S.card;
-    const num = (c.num || '').padEnd(19, '•').replace(/(.{4})(?=.)/g, '$1').slice(0, 19);
+    const num = (c.num || '').padEnd(19, '•').slice(0, 19);
+    const icCard = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>';
     return `
-    <h1 class="h-step">Pagamento recorrente</h1>
-    <p class="sub">${esc(p.name)} · ${brl(p.price)}/${esc(p.period || 'mês')}, renovado automaticamente.</p>
+    <h1 class="h-step" tabindex="-1">Pagamento recorrente</h1>
+    <p class="sub">${esc(p.name)}, ${brl(p.price)}/${esc(p.period || 'mês')}, renovado automaticamente.</p>
     <div class="opts" style="margin-bottom:16px">
-      <button class="opt ${S.planPay === 'card' ? 'on' : ''}" data-act="planPay" data-id="card">
-        <span class="pay-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
-        <span class="opt-main"><b>Cartão de crédito</b><small>Cobrança mensal automática</small></span><span class="check">${CHECK}</span></button>
-      <button class="opt ${S.planPay === 'pix' ? 'on' : ''}" data-act="planPay" data-id="pix">
-        <span class="pay-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l4 4-4 4-4-4 4-4zM12 13l4 4-4 4-4-4 4-4zM3 12l4-4 4 4-4 4-4-4zM13 12l4-4 4 4-4 4-4-4z"/></svg></span>
-        <span class="opt-main"><b>Pix Automático</b><small>Autoriza uma vez, debita todo mês</small></span><span class="check">${CHECK}</span></button>
+      ${payOpt('planPay', S.planPay === 'card', 'card', icCard, 'Cartão de crédito', 'Cobrança mensal automática')}
+      ${payOpt('planPay', S.planPay === 'pix', 'pix', IC_PIX, 'Pix Automático', 'Autoriza uma vez, debita todo mês')}
     </div>
     ${S.planPay === 'card' ? `
       <div class="cc" aria-hidden="true">
-        <div style="display:flex;justify-content:space-between;align-items:center"><span class="cc-chip"></span><span class="label brass">${esc(clubName)}</span></div>
+        <div class="cc-top"><span class="cc-chip"></span><span class="label brass">${esc(clubName)}</span></div>
         <div class="cc-num" id="ccNum">${esc(num)}</div>
-        <div class="cc-row"><span>Titular<br><b id="ccHolder">${esc(c.holder || 'SEU NOME')}</b></span><span>Validade<br><b id="ccExp">${esc(c.exp || 'MM/AA')}</b></span></div>
+        <div class="cc-row"><span>Titular<br><b id="ccHolder">${esc((c.holder || 'SEU NOME').toUpperCase())}</b></span><span>Validade<br><b id="ccExp">${esc(c.exp || 'MM/AA')}</b></span></div>
       </div>
       <div class="form">
-        <label class="field"><span class="label">Número do cartão</span><input class="input" data-in="ccnum" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" maxlength="19" value="${esc(c.num)}"></label>
+        ${field('ccnum', 'Número do cartão', 'inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" maxlength="19"', c.num)}
         <div class="grid2">
-          <label class="field"><span class="label">Validade</span><input class="input" data-in="ccexp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5" value="${esc(c.exp)}"></label>
-          <label class="field"><span class="label">CVV</span><input class="input" data-in="cccvv" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" value="${esc(c.cvv)}"></label>
+          ${field('ccexp', 'Validade', 'inputmode="numeric" autocomplete="cc-exp" placeholder="MM/AA" maxlength="5"', c.exp)}
+          ${field('cccvv', 'CVV', 'inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4"', c.cvv)}
         </div>
-        <label class="field"><span class="label">Nome impresso</span><input class="input" data-in="ccholder" autocomplete="cc-name" autocapitalize="characters" placeholder="Como no cartão" value="${esc(c.holder)}"></label>
+        ${field('ccholder', 'Nome impresso', 'autocomplete="cc-name" autocapitalize="characters" placeholder="Como no cartão"', c.holder)}
         <button class="link-btn" data-act="testCard">Preencher com cartão de teste</button>
-        <span class="asaas" style="justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>Ambiente de demonstração · nada é cobrado</span>
+        <span class="asaas" style="justify-content:center">${IC_LOCK}Ambiente de demonstração, nada é cobrado.</span>
       </div>` : pixPanel(p.price, refCode(), true)}`;
   }
 
@@ -385,17 +412,17 @@
     const p = planById(S.planId);
     return `
     <div class="plan-hero">
-      ${p.badge ? `<span class="chip brass" style="align-self:flex-start">${esc(p.badge)}</span>` : ''}
-      <h2>${esc(p.name)}</h2>
-      ${p.subtitle ? `<p class="muted" style="margin-top:-6px">${esc(p.subtitle)}</p>` : ''}
+      ${p.badge ? `<span class="chip brass">${esc(p.badge)}</span>` : ''}
+      <h2 class="h-step" tabindex="-1">${esc(p.name)}</h2>
+      ${p.subtitle ? `<p class="plan-sub">${esc(p.subtitle)}</p>` : ''}
       <div class="price"><b>${brl(p.price)}</b><span>/${esc(p.period || 'mês')}</span></div>
-      <ul class="perks">${(p.perks || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <ul class="perks">${(p.perks || []).map(x => `<li>${CHECK}<span>${esc(x)}</span></li>`).join('')}</ul>
     </div>
-    ${DV.plans.length > 1 ? `<div class="chips-sel" style="margin-top:14px">${DV.plans.map(o => `<button class="chip-btn ${o.id === p.id ? 'on' : ''}" data-act="plan" data-id="${esc(o.id)}">${esc(o.name)}</button>`).join('')}</div>` : ''}
+    ${DV.plans.length > 1 ? `<div class="chips-sel plan-pick">${DV.plans.map(o => `<button class="chip-btn ${o.id === p.id ? 'on' : ''}" data-act="plan" data-id="${esc(o.id)}" ${pressed(o.id === p.id)}>${esc(o.name)}</button>`).join('')}</div>` : ''}
     <div class="how-bill">
-      <div><i>1</i><span><b style="color:var(--text)">Assine em 1 minuto</b> — cartão de crédito ou Pix Automático, processado pelo Asaas.</span></div>
-      <div><i>2</i><span><b style="color:var(--text)">Agende quando quiser</b> — os serviços do plano saem R$ 0,00 no agendamento.</span></div>
-      <div><i>3</i><span><b style="color:var(--text)">Renova sozinho todo mês</b> — recibo no seu WhatsApp.</span></div>
+      <div><i>1</i><span><b>Assine em 1 minuto</b>Cartão de crédito ou Pix Automático, processado pelo Asaas.</span></div>
+      <div><i>2</i><span><b>Agende quando quiser</b>Os serviços do plano saem R$ 0,00 no agendamento.</span></div>
+      <div><i>3</i><span><b>Renova sozinho todo mês</b>Recibo no seu WhatsApp.</span></div>
     </div>`;
   };
 
@@ -414,7 +441,7 @@
       `UID:${S.code}@donvintage.demo`, `DTSTAMP:${utcStamp(nowRB())}`, `DTSTART:${utcStamp(s)}`, `DTEND:${utcStamp(e)}`,
       `SUMMARY:${B.name} · ${selSvcs().map(x => x.name).join(' + ')}`,
       `DESCRIPTION:Com ${barberName(S.assigned)}. Código ${S.code}. Remarque ou cancele até 2h antes.`,
-      `LOCATION:${B.name} ${u.name} - ${(u.address || '').replace(/,/g, '\\,')} - ${B.city || ''}`,
+      `LOCATION:${B.name} ${u.name}\\, ${(u.address || '').replace(/,/g, '\\,')}\\, ${B.city || ''}`,
       'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:Seu horário na Don Vintage', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'];
     return URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
   }
@@ -428,42 +455,42 @@
   function bookingDone() {
     if (S.canceled) return `
       <div class="success">
-        <svg class="seal cancel" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><path d="M36 36l28 28M64 36L36 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
-        <h1 class="h-step">Agendamento cancelado</h1>
-        <p class="sub">O horário de ${esc(dayLabel(S.date, true))} às ${hhmm(S.time)} foi liberado. ${S.pay === 'pix' ? 'O estorno do Pix cai em instantes.' : ''}</p>
-        <div class="actions"><button class="btn btn-primary btn-block" data-act="restart">Agendar novamente</button><a class="btn btn-ghost btn-block" href="site.html">Voltar ao site</a></div>
+        <svg class="seal cancel" viewBox="0 0 100 100" aria-hidden="true"><circle pathLength="1" cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3" transform="rotate(-90 50 50)"/><path pathLength="1" d="M36 36l28 28M64 36L36 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg>
+        <h1 class="h-step" tabindex="-1">Agendamento cancelado</h1>
+        <p class="sub">O horário de ${esc(dayLabel(S.date, true))} às ${hhmm(S.time)} foi liberado.${S.pay === 'pix' ? ' O estorno do Pix cai em instantes.' : ''}</p>
+        <div class="actions" style="margin-top:24px"><button class="btn btn-primary btn-block" data-act="restart">Agendar novamente</button><a class="btn btn-ghost btn-block" href="site.html">Voltar ao site</a></div>
       </div>`;
-    const u = unit(); const b = barberById(S.assigned) || { name: '—' }; const [pl, pc] = payLabel();
-    const s = startDate(); const end = S.time + totalDur(); const late = minutesUntil() < 120;
+    const u = unit(); const b = barberById(S.assigned) || { name: barberName(S.barber) || 'A definir' }; const [pl, pc] = payLabel();
+    const end = S.time + totalDur(); const late = minutesUntil() < 120;
     return `
     <div class="success">
-      <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><path d="M30 52l13 13 27-29" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ${SEAL_OK}
       <p class="code">Código ${esc(S.code)}</p>
-      <h1 class="h-step" style="margin-top:6px">Tudo certo, ${esc(firstName())}!</h1>
-      <p class="sub">Seu horário está confirmado. ${S.reminder ? 'Lembrete no WhatsApp 2h antes.' : ''}</p>
+      <h1 class="h-step" tabindex="-1" style="margin-top:6px">Tudo certo, ${esc(firstName())}!</h1>
+      <p class="sub">Horário confirmado.${S.reminder ? ' Lembrete no WhatsApp 2h antes.' : ''}</p>
       <article class="ticket">
         <div class="ticket-top">
           <span class="label">${esc(B.name)} · ${esc(u.name)}</span>
           <span class="when">${esc(dayLabel(S.date, true))}</span>
-          <span class="hour">${hhmm(S.time)} – ${hhmm(end)}</span>
+          <span class="hour">${hhmm(S.time)} às ${hhmm(end)}</span>
         </div>
         <div class="perf"></div>
         <ul class="ticket-list">
-          <li><span>Profissional</span><b style="display:flex;align-items:center;gap:8px">${avatar(b, 26)}${esc(b.name)}</b></li>
+          <li><span>Profissional</span><b class="who">${avatar(b, 28)}${esc(b.name)}</b></li>
           ${selSvcs().map(x => `<li><span>${esc(x.name)}</span><b>${priceOf(x) === 0 && S.subscriber ? 'Plano' : brl(priceOf(x))}</b></li>`).join('')}
           <li><span>Endereço</span><b>${esc(u.address || B.address || '')}</b></li>
-          <li class="tot"><span>Total · <span class="chip ${pc}">${pl}</span></span><b>${brl(total())}</b></li>
+          <li class="tot"><span>Total <span class="chip ${pc}">${pl}</span></span><b>${brl(total())}</b></li>
         </ul>
       </article>
       <div class="actions">
         <a class="btn btn-primary btn-block" href="${icsHref()}" download="don-vintage-${esc(S.code)}.ics">Adicionar ao calendário</a>
-        <a class="link-btn" href="${esc(gcalHref())}" target="_blank" rel="noopener" style="text-align:center;display:block">ou abrir no Google Agenda</a>
+        <a class="link-btn" href="${esc(gcalHref())}" target="_blank" rel="noopener">ou abrir no Google Agenda</a>
         <a class="btn btn-wa btn-block" href="${esc(waBooking())}" target="_blank" rel="noopener">Falar no WhatsApp</a>
         <div class="row">
           <button class="btn btn-ghost" data-act="reschedule" ${late ? 'disabled' : ''}>Remarcar</button>
           <button class="btn btn-danger" data-act="cancel" ${late ? 'disabled' : ''}>Cancelar</button>
         </div>
-        <div class="policy"><span>ⓘ</span><span>${late ? '<b>Faltam menos de 2h.</b> Para mudanças agora, fale com a unidade pelo WhatsApp.' : '<b>Remarque ou cancele até 2h antes</b> do horário, sem custo, por aqui mesmo.'}</span></div>
+        <div class="policy">${IC_INFO}<span>${late ? '<b>Faltam menos de 2h.</b> Para mudar agora, fale com a unidade pelo WhatsApp.' : '<b>Remarque ou cancele até 2h antes</b>, sem custo, por aqui mesmo.'}</span></div>
         <a class="btn btn-ghost btn-block" href="site.html" style="margin-top:6px">Voltar ao site</a>
       </div>
     </div>`;
@@ -476,19 +503,19 @@
     const txt = `Olá! Acabei de assinar o ${p.name} pelo site. Sou ${S.name.trim()}. Código ${S.code}.`;
     return `
     <div class="success">
-      <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="3"/><path d="M30 52l13 13 27-29" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <h1 class="h-step">Bem-vindo ao ${esc(p.name)}, ${esc(firstName())}!</h1>
+      ${SEAL_OK}
+      <h1 class="h-step" tabindex="-1">Bem-vindo ao ${esc(p.name)}, ${esc(firstName())}!</h1>
       <p class="sub">Assinatura ativa. ${S.planPay === 'card' ? 'Cobrança automática no cartão' : 'Pix Automático autorizado'} todo dia ${n.getUTCDate()}.</p>
       <div class="member">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="m-club">${esc(p.name)}</div><div class="m-plan" style="margin-top:6px">${esc(p.subtitle || 'Membro')}</div></div><span class="logo-mark">DV</span></div>
+        <div class="m-top"><div><div class="m-club">${esc(p.name)}</div><div class="m-plan">${esc(p.subtitle || 'Membro')}</div></div><span class="logo-mark">DV</span></div>
         <div class="m-name">${esc(S.name.trim())}</div>
-        <div class="m-row"><span>Membro desde<b>${MO[n.getUTCMonth()]}/${n.getUTCFullYear()}</b></span><span>Próxima cobrança<b>${String(next.getUTCDate()).padStart(2, '0')}/${String(next.getUTCMonth() + 1).padStart(2, '0')}/${next.getUTCFullYear()}</b></span><span>Nº<b>${esc(S.code)}</b></span></div>
+        <div class="m-row"><span>Desde<b>${MO[n.getUTCMonth()]}/${n.getUTCFullYear()}</b></span><span>Renova em<b>${String(next.getUTCDate()).padStart(2, '0')}/${String(next.getUTCMonth() + 1).padStart(2, '0')}/${next.getUTCFullYear()}</b></span><span>Nº<b>${esc(S.code)}</b></span></div>
         <div class="pole"></div>
       </div>
       <div class="actions">
         <a class="btn btn-primary btn-block" href="agendar.html?assinante=${encodeURIComponent(p.id)}">Agendar meu primeiro horário</a>
         <a class="btn btn-wa btn-block" href="${num ? `https://wa.me/${num}?text=${encodeURIComponent(txt)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(txt)}`}" target="_blank" rel="noopener">Falar no WhatsApp</a>
-        <div class="policy"><span>ⓘ</span><span><b>${brl(p.price)}/${esc(p.period || 'mês')}</b>, renovação automática. Recibo de cada cobrança chega no seu WhatsApp.</span></div>
+        <div class="policy">${IC_INFO}<span><b>${brl(p.price)}/${esc(p.period || 'mês')}</b>, renovação automática. O recibo de cada cobrança chega no seu WhatsApp.</span></div>
         <a class="btn btn-ghost btn-block" href="site.html">Voltar ao site</a>
       </div>
     </div>`;
@@ -497,9 +524,15 @@
 
   /* ---------- Rodapé, cabeçalho e resumo ---------- */
   const body = $('#body'), foot = $('#foot'), footSum = $('#footSum'), nextBtn = $('#nextBtn');
+  const sideOn = () => getComputedStyle($('#side')).display !== 'none';
+  // Último valor mostrado no rodapé: o rodapé é remontado a cada mudança, então a contagem
+  // parte daqui (e não do zero) e só anima quando o número realmente mudou.
+  let shownTotal = null, shownDur = null;
+  const durFmt = (v) => dur(Math.round(v / 5) * 5);
   function updateFoot() {
     const id = STEPS[cur].id;
     foot.classList.toggle('gone', id === 'fim');
+    if (nextBtn.classList.contains('is-loading')) return;
     let left = '', label = 'Continuar';
     if (S.mode === 'plan') {
       const p = planById(S.planId);
@@ -509,55 +542,64 @@
       const n = S.services.length;
       if (id === 'unidade') left = S.unit ? `<span>Unidade <b>${esc(unit().name)}</b></span>` : '';
       else if (n) {
-        let ctx = `<b>${n} serviço${n > 1 ? 's' : ''}</b> · ${dur(totalDur())}`;
-        if (id === 'profissional' && S.barber) ctx = `<b>${S.barber === 'any' ? 'Sem preferência' : esc(barberName(S.barber))}</b> · ${dur(totalDur())}`;
-        if ((id === 'horario' || id === 'dados' || id === 'pagamento') && S.time != null) ctx = `<b>${esc(dayLabel(S.date))} · ${hhmm(S.time)}</b>`;
-        left = `<span>${ctx}</span><span class="t">${brl(total())}</span>`;
+        let ctx = `<b>${n} serviço${n > 1 ? 's' : ''}</b> · <span id="fDur"></span>`;
+        if (id === 'profissional' && S.barber) ctx = `<b>${S.barber === 'any' ? 'Sem preferência' : esc(barberName(S.barber))}</b> · <span id="fDur"></span>`;
+        if ((id === 'horario' || id === 'dados' || id === 'pagamento') && S.time != null) ctx = `<b>${esc(dayLabel(S.date))}, ${hhmm(S.time)}</b>`;
+        left = `<span>${ctx}</span><span class="t" id="fTot"></span>`;
       }
       if (id === 'pagamento') label = S.pay === 'pix' ? 'Já paguei o Pix' : S.pay === 'plan' ? 'Confirmar com meu plano' : 'Confirmar agendamento';
     }
     footSum.innerHTML = left;
+    const t = total(), d = totalDur();
+    // Pré-preenche com o valor de partida: countUp só escreve no próximo quadro, e o rodapé não pode piscar vazio.
+    const ft = $('#fTot'); if (ft) { const f = shownTotal == null ? t : shownTotal; ft.textContent = brl(f); motion.countUp(ft, t, brl, f); }
+    const fd = $('#fDur'); if (fd) { const f = shownDur == null ? d : shownDur; fd.textContent = durFmt(f); motion.countUp(fd, d, durFmt, f); }
+    shownTotal = t; shownDur = d;
     nextBtn.textContent = label;
     // Botão fica clicável mesmo inválido: o toque mostra o motivo (botão "morto" confunde no celular).
     nextBtn.classList.toggle('is-off', !!check(id));
-    nextBtn.style.opacity = check(id) ? '.55' : '';
     renderSide();
   }
   function updateHead() {
     const st = STEPS[cur]; const last = STEPS.length - 1;
     $('#stepTitle').textContent = st.t;
     $('#stepCount').textContent = cur < last ? `Etapa ${cur + 1} de ${last}` : (S.mode === 'plan' ? clubName : B.name);
-    $('#progressBar').style.width = `${Math.max(4, (cur / last) * 100)}%`;
+    $('#progressBar').style.transform = `scaleX(${Math.max(0.04, cur / last)})`;
     $('#backBtn').style.visibility = cur === last ? 'hidden' : '';
     document.title = `${st.t} · ${B.name}`;
   }
+  const sideRow = ([k, v]) => `<li class="${v ? '' : 'nil'}"><span class="label">${k}</span><b>${esc(v || 'A definir')}</b></li>`;
   function renderSide() {
-    const side = $('#side'); if (getComputedStyle(side).display === 'none') return;
+    const side = $('#side'); if (!sideOn()) return;
     let rows;
     if (S.mode === 'plan') {
       const p = planById(S.planId);
       rows = [['Plano', p.name], ['Cobrança', S.planPay === 'card' ? 'Cartão recorrente' : 'Pix Automático'], ['Assinante', S.name.trim() || null]];
-      side.innerHTML = `<div class="card side-card"><p class="eyebrow">Resumo</p><h3>Sua assinatura</h3><ul class="side-list">${rows.map(([k, v]) => `<li class="${v ? '' : 'nil'}"><span class="label">${k}</span><b>${esc(v || '—')}</b></li>`).join('')}</ul><div class="side-tot"><span class="label">Por mês</span><b>${brl(p.price)}</b></div></div><p class="side-help">Pagamento recorrente processado pelo Asaas. Ambiente de demonstração.</p>${badge}`;
+      side.innerHTML = `<div class="card side-card"><p class="eyebrow">Resumo</p><h3>Sua assinatura</h3><ul class="side-list">${rows.map(sideRow).join('')}</ul><div class="side-tot"><span class="label">Por mês</span><b>${brl(p.price)}</b></div></div><p class="side-help">Pagamento recorrente processado pelo Asaas. Ambiente de demonstração.</p>${badge}`;
       return;
     }
     rows = [
       ['Unidade', S.unit ? unit().name : null],
       ['Serviços', selSvcs().map(s => s.name).join(', ') || null],
       ['Profissional', S.barber ? (S.barber === 'any' ? (S.assigned && S.time != null ? `${barberName(S.assigned)} (sem preferência)` : 'Sem preferência') : barberName(S.barber)) : null],
-      ['Data e horário', S.time != null ? `${dayLabel(S.date, true)} · ${hhmm(S.time)}` : null],
+      ['Data e horário', S.time != null ? `${dayLabel(S.date, true)}, ${hhmm(S.time)}` : null],
       ['Cliente', S.name.trim() || null],
       ['Pagamento', STEPS[cur].id === 'pagamento' || S.done ? ({ plan: 'Plano', pix: 'Pix', local: 'Na barbearia' })[S.pay] : null],
     ];
     side.innerHTML = `<div class="card side-card"><p class="eyebrow">Resumo</p><h3>Seu horário</h3>
-      <ul class="side-list">${rows.map(([k, v]) => `<li class="${v ? '' : 'nil'}"><span class="label">${k}</span><b>${esc(v || '—')}</b></li>`).join('')}</ul>
+      <ul class="side-list">${rows.map(sideRow).join('')}</ul>
       <div class="side-tot"><span class="label">Total${S.services.length ? ' · ' + dur(totalDur()) : ''}</span><b>${brl(total())}</b></div></div>
       <p class="side-help">Remarque ou cancele até 2h antes. Lembrete automático pelo WhatsApp.</p>${badge}`;
   }
 
-  /* ---------- Navegação ---------- */
-  let pixTimer = null;
+  /* ---------- Navegação ----------
+     Troca de etapa direcional: a etapa antiga sai (STEP_OUT_MS) para o lado oposto ao avanço
+     e só então a nova entra. navTok descarta trocas atropeladas; locked impede avançar duas
+     vezes com toque duplo durante a saída ou o envio. */
+  let pixTimer = null, navTok = 0, locked = false;
   function render(dir) {
     clearInterval(pixTimer);
+    const tok = ++navTok;
     const id = STEPS[cur].id;
     // Ao entrar no horário: descarta seleção que deixou de existir (trocou serviço/profissional).
     if (id === 'horario') {
@@ -566,12 +608,24 @@
     }
     if (id === 'profissional' && S.barber && S.barber !== 'any' && !eligible().some(b => b.id === S.barber)) S.barber = null;
     if (id === 'profissional' && !S.barber && eligible().length === 1) S.barber = eligible()[0].id;
-    const keep = dir === 'same' ? body.scrollTop : 0;
-    body.innerHTML = `<div class="step ${dir === 'back' ? 'back' : dir === 'same' ? 'still' : ''}">${R[id]()}${$('#side') && getComputedStyle($('#side')).display !== 'none' ? '' : badge}</div>`;
-    body.scrollTop = keep;
-    updateHead(); updateFoot();
-    if (id === 'horario') { const on = body.querySelector('.day.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' }); }
-    if (id === 'pagamento') startPixTimer();
+    updateHead();
+    const swap = () => {
+      if (tok !== navTok) return;
+      locked = false;
+      const keep = dir === 'same' ? body.scrollTop : 0;
+      body.innerHTML = `<div class="step ${dir === 'back' ? 'back' : dir === 'same' ? 'still' : ''}">${R[id]()}${sideOn() ? '' : badge}</div>`;
+      body.scrollTop = keep;
+      updateFoot();
+      if (id === 'horario') centerDay(false);
+      if (id === 'pagamento') startPixTimer();
+      // Foco no título da etapa nova: leitor de tela anuncia onde o usuário está.
+      if (dir === 'fwd' || dir === 'back') { const h = body.querySelector('.h-step'); if (h) h.focus({ preventScroll: true }); }
+    };
+    const old = body.firstElementChild;
+    if (dir === 'same' || !dir || !old || motion.reduced()) { swap(); return; }
+    locked = true;
+    old.classList.add(dir === 'back' ? 'out-back' : 'out-fwd');
+    setTimeout(swap, STEP_OUT_MS);
   }
   function go(i, opts) {
     opts = opts || {};
@@ -581,7 +635,13 @@
     else if (opts.replace) history.replaceState({ s: cur, m: S.mode }, '', location.pathname + location.search + '#' + STEPS[cur].id);
     render(dir);
   }
-  function scrollToPix() { const p = $('#pix'); if (p) requestAnimationFrame(() => p.scrollIntoView({ behavior: 'smooth', block: 'nearest' })); }
+  const smooth = () => (motion.reduced() ? 'auto' : 'smooth');
+  // Centraliza o dia escolhido na tira (scrollTo no próprio container: não mexe na rolagem vertical).
+  function centerDay(anim) {
+    const d = $('#days'); const on = d && d.querySelector('.day.on'); if (!on) return;
+    d.scrollTo({ left: on.offsetLeft - (d.clientWidth - on.offsetWidth) / 2, behavior: anim ? smooth() : 'auto' });
+  }
+  function scrollToPix() { const p = $('#pix'); if (p) requestAnimationFrame(() => p.scrollIntoView({ behavior: smooth(), block: 'nearest' })); }
   function startPixTimer() {
     const el = $('#pixTimer'); if (!el) return;
     let left = 600;
@@ -589,32 +649,55 @@
   }
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
-  function busy(text, ms) {
-    return new Promise(res => { const o = $('#overlay'); $('#overlayText').textContent = text; o.hidden = false; setTimeout(() => { o.hidden = true; res(); }, ms); });
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  // Reinicia a animação de seleção (✓ que se desenha / escala curta) e dá um toque de vibração.
+  function pop(el) { if (!el) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); motion.haptic(8); }
+  function setOn(sel, test) { body.querySelectorAll(sel).forEach(b => { const on = test(b); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }); }
+
+  /* Erro de campo: aria-invalid dispara o shake do base.css. No envio (shake=true) a animação
+     reinicia mesmo se o campo já estava inválido; no blur o campo é marcado sem tremer (.calm). */
+  function markField(inp, shake) {
+    const k = inp.dataset.in; if (!V[k]) return '';
+    const msg = V[k](); const er = document.getElementById('e-' + k);
+    if (!msg) { inp.removeAttribute('aria-invalid'); inp.classList.remove('calm'); if (er) er.textContent = ''; return ''; }
+    inp.classList.toggle('calm', !shake);
+    if (shake) { inp.removeAttribute('aria-invalid'); void inp.offsetWidth; }
+    inp.setAttribute('aria-invalid', 'true'); if (er) er.textContent = msg;
+    return msg;
+  }
+  function markAll() {
+    let first = null;
+    body.querySelectorAll('.input[data-in]').forEach(inp => { if (markField(inp, true) && !first) first = inp; });
+    if (first) first.focus({ preventScroll: false });
+    return first;
   }
 
   async function next() {
+    if (locked) return;
     const id = STEPS[cur].id; const err = check(id);
     if (err) {
       nextBtn.classList.remove('shake'); void nextBtn.offsetWidth; nextBtn.classList.add('shake');
-      if (id === 'dados') { const e = $('#fErr'); if (e) e.textContent = err; markFields(); }
-      toast(err); return;
+      motion.haptic(20);
+      // Erro de formulário fica no próprio campo; os demais (nada escolhido) vão no aviso.
+      if (!markAll()) toast(err);
+      return;
     }
     if (id === 'pagamento') {
       refCode();
-      if (S.mode === 'plan') await busy(S.planPay === 'card' ? 'Criando assinatura no Asaas…' : 'Confirmando autorização do Pix…', 1500);
-      else await busy(S.pay === 'pix' ? 'Recebendo Pix via Asaas…' : 'Reservando seu horário…', S.pay === 'pix' ? 1500 : 1000);
+      locked = true;
+      const msg = S.mode === 'plan' ? (S.planPay === 'card' ? 'Criando assinatura no Asaas…' : 'Confirmando o Pix Automático…') : (S.pay === 'pix' ? 'Confirmando o Pix…' : 'Reservando seu horário…');
+      footSum.innerHTML = `<span class="status">${msg}</span>`;
+      nextBtn.classList.add('is-loading'); nextBtn.setAttribute('aria-busy', 'true');
+      await wait(SUBMIT_MS);
+      nextBtn.classList.remove('is-loading'); nextBtn.removeAttribute('aria-busy');
+      locked = false;
       S.done = true; S.canceled = false;
-      if (navigator.vibrate) navigator.vibrate(30);
+      motion.haptic(30);
     }
     go(cur + 1, { push: true });
   }
-  function markFields() {
-    const n = $('#fName'), p = $('#fPhone');
-    if (n) n.classList.toggle('bad', S.name.trim().length < 2);
-    if (p) p.classList.toggle('bad', phoneDigits().length !== 11);
-  }
   function back() {
+    if (locked) return;
     if (cur === 0) { location.href = 'site.html'; return; }
     history.back();
   }
@@ -640,15 +723,17 @@
   /* ---------- Eventos ---------- */
   nextBtn.addEventListener('click', next);
   $('#backBtn').addEventListener('click', back);
+  // Auto-avanço depois de escolha única: tempo para o ✓ terminar de se desenhar (40 + 260ms).
+  const AUTO_NEXT_MS = 320;
 
   body.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-act]'); if (!el || el.disabled) return;
+    const el = e.target.closest('[data-act]'); if (!el || el.disabled || locked) return;
     const a = el.dataset.act, id = el.dataset.id;
     switch (a) {
       case 'unit':
         if (S.unit !== id) { S.unit = id; S.time = null; if (S.barber && S.barber !== 'any' && (barberById(S.barber) || {}).unit !== id) S.barber = null; }
-        body.querySelectorAll('[data-act="unit"]').forEach(b => b.classList.toggle('on', b.dataset.id === id));
-        updateFoot(); setTimeout(() => { if (STEPS[cur].id === 'unidade') next(); }, 260);
+        setOn('[data-act="unit"]', b => b.dataset.id === id); pop(el);
+        updateFoot(); setTimeout(() => { if (STEPS[cur].id === 'unidade') next(); }, AUTO_NEXT_MS);
         break;
       case 'cat':
         S.cat = id; $('#cats').innerHTML = catChips(); $('#svcList').innerHTML = svcList();
@@ -657,32 +742,35 @@
         const i = S.services.indexOf(id);
         if (i >= 0) S.services.splice(i, 1); else S.services.push(id);
         S.time = null; S.assigned = null;
-        el.classList.toggle('on', i < 0); $('#cats').innerHTML = catChips();
+        el.classList.toggle('on', i < 0); el.setAttribute('aria-pressed', i < 0 ? 'true' : 'false');
+        if (i < 0) pop(el); else motion.haptic(6);
+        $('#cats').innerHTML = catChips();
         if (i < 0 && S.services.length && !eligible().length) toast('Nenhum profissional faz todos esses serviços juntos nesta unidade');
         updateFoot(); break;
       }
       case 'clearBarber': S.barber = null; render('same'); break;
       case 'barber':
         if (S.barber !== id) { S.barber = id; S.time = null; S.assigned = null; }
-        body.querySelectorAll('[data-act="barber"]').forEach(b => b.classList.toggle('on', b.dataset.id === id));
-        updateFoot(); setTimeout(() => { if (STEPS[cur].id === 'profissional') next(); }, 260);
+        setOn('[data-act="barber"]', b => b.dataset.id === id); pop(el);
+        updateFoot(); setTimeout(() => { if (STEPS[cur].id === 'profissional') next(); }, AUTO_NEXT_MS);
         break;
       case 'day':
         S.date = el.dataset.k; S.time = null; S.assigned = null;
-        body.querySelectorAll('.day').forEach(b => b.classList.toggle('on', b === el));
+        setOn('.day', b => b === el); pop(el); centerDay(true);
         $('#dayTitle').textContent = dayLabel(S.date, true); $('#slots').innerHTML = slotsHTML();
         updateFoot(); break;
       case 'slot':
         S.time = Number(el.dataset.m); S.assigned = assign(S.date, S.time);
-        body.querySelectorAll('.slot').forEach(b => b.classList.toggle('on', b === el));
+        setOn('.slot', b => b === el); pop(el);
         updateFoot();
         if (S.barber === 'any' && S.assigned) toast(`Você será atendido por ${barberName(S.assigned)}`);
         break;
       case 'subPlan': S.subPlan = id; render('same'); break;
-      case 'pay': S.pay = id; render('same'); scrollToPix(); break;
-      case 'planPay': S.planPay = id; render('same'); scrollToPix(); break;
-      case 'plan': S.planId = id; STEPS[0].t = planById(id).name; S.code = ''; render('same'); break;
-      case 'copy': copy($('#pixCode').textContent); break;
+      case 'pay': case 'planPay':
+        if (a === 'pay') S.pay = id; else S.planPay = id;
+        render('same'); pop(body.querySelector(`[data-act="${a}"].on`)); scrollToPix(); break;
+      case 'plan': S.planId = id; STEPS[0].t = planById(id).name; S.code = ''; updateHead(); render('same'); break;
+      case 'copy': copy($('#pixCode').textContent, el); break;
       case 'testCard':
         // Número de teste público (Visa 4111…), aceito no sandbox do Asaas; nunca um cartão real.
         S.card = { num: '4111 1111 1111 1111', exp: '12/30', cvv: '123', holder: (S.name || 'Cliente Teste').toUpperCase() };
@@ -692,9 +780,9 @@
         go(idx('horario'), { push: true }); toast('Escolha o novo horário'); break;
       case 'cancel':
         if (!el.classList.contains('arm')) {
-          el.classList.add('arm'); el.textContent = 'Toque para confirmar';
+          el.classList.add('arm'); el.textContent = 'Toque para confirmar'; motion.haptic(12);
           setTimeout(() => { if (el.isConnected) { el.classList.remove('arm'); el.textContent = 'Cancelar'; } }, 3000);
-        } else { S.canceled = true; render('same'); body.scrollTop = 0; toast('Horário liberado'); }
+        } else { S.canceled = true; render('same'); body.scrollTop = 0; motion.haptic(30); }
         break;
       case 'restart': restart(); break;
     }
@@ -715,28 +803,44 @@
     if (k === 'ccexp') { const d = el.value.replace(/\D/g, '').slice(0, 4); el.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; S.card.exp = el.value; $('#ccExp').textContent = el.value || 'MM/AA'; }
     if (k === 'cccvv') { el.value = el.value.replace(/\D/g, '').slice(0, 4); S.card.cvv = el.value; }
     if (k === 'ccholder') { S.card.holder = el.value; $('#ccHolder').textContent = el.value.toUpperCase() || 'SEU NOME'; }
-    if (el.classList.contains('bad')) markFields();
-    const err = $('#fErr'); if (err && !check('dados')) err.textContent = '';
+    // Campo já marcado: limpa o erro assim que fica válido (sem tremer de novo enquanto digita).
+    if (el.getAttribute('aria-invalid') === 'true' && V[k] && !V[k]()) markField(el, false);
     updateFoot();
+  });
+  // Valida no blur, não a cada tecla; campo vazio não acusa erro antes do envio.
+  body.addEventListener('focusout', (e) => {
+    const el = e.target; if (!el.dataset || !V[el.dataset.in] || !el.value.trim()) return;
+    markField(el, false);
   });
   body.addEventListener('change', (e) => {
     const el = e.target; const k = el.dataset.in;
-    if (k === 'subscriber') { S.subscriber = el.checked; S.pay = null; if (DV.plans.length > 1) render('same'); else updateFoot(); }
-    if (k === 'reminder') S.reminder = el.checked;
+    if (k === 'subscriber') { S.subscriber = el.checked; S.pay = null; motion.haptic(8); if (DV.plans.length > 1) render('same'); else updateFoot(); }
+    if (k === 'reminder') { S.reminder = el.checked; motion.haptic(8); }
   });
   body.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || !e.target.dataset.in) return;
-    if (e.target.dataset.in === 'name') { e.preventDefault(); const p = $('#fPhone'); if (p) p.focus(); }
+    if (e.key !== 'Enter' || !e.target.dataset || !e.target.dataset.in) return;
+    if (e.target.dataset.in === 'name') { e.preventDefault(); const p = $('#f-phone'); if (p) p.focus(); }
     else if (e.target.dataset.in === 'phone') { e.preventDefault(); e.target.blur(); next(); }
   });
 
-  function copy(text) {
-    const done = () => toast('Código Pix copiado');
-    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done, fallback); } else fallback();
+  // "Copiar" vira "Copiado" no próprio botão (com ✓ que se desenha) por 1,8s; nada de alerta.
+  function copy(text, btn) {
+    const box = $('#copyBox');
+    const done = () => {
+      clearTimeout(btn._t);
+      btn.classList.add('is-done'); box.classList.add('is-done');
+      btn.innerHTML = `${CHECK.replace('stroke-width="3.2"', 'stroke-width="3"')}Copiado`;
+      motion.haptic(10);
+      btn._t = setTimeout(() => { if (btn.isConnected) { btn.classList.remove('is-done'); box.classList.remove('is-done'); btn.textContent = 'Copiar'; } }, 1800);
+    };
+    // Sem permissão de clipboard: deixa o código selecionado para o "copiar" nativo do aparelho.
+    const fail = () => { btn.textContent = 'Selecionado'; const r = document.createRange(); r.selectNodeContents($('#pixCode')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
     function fallback() {
       const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
-      document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (_) { toast('Não foi possível copiar'); } t.remove();
+      document.body.appendChild(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (_) { ok = false; } t.remove();
+      if (ok) done(); else fail();
     }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   }
 
   window.addEventListener('resize', () => renderSide());
@@ -747,8 +851,7 @@
   history.replaceState({ s: 0, m: S.mode }, '', location.pathname + location.search + '#' + STEPS[0].id);
   const skipUnit = S.mode === 'book' && STEPS[0].id === 'unidade' && S.unit && (qs.has('unidade') || qb);
   if (skipUnit) {
-    go(idx('servicos'), { push: true });
-  } else {
-    render();
+    cur = idx('servicos'); history.pushState({ s: cur, m: S.mode }, '', '#' + STEPS[cur].id);
   }
+  render();
 })();

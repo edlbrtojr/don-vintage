@@ -106,7 +106,7 @@ window.DV = {
     { id: 'balm-el-capitan', name: 'Balm El Capitan', brand: 'El Capitan', price: 75, stock: 9, min: 4, cost: 36 },
     { id: 'oleo-tower', name: 'Óleo para barba Tower', brand: 'Tower', price: 85, stock: 2, min: 4, cost: 41 },
     { id: 'shampoo-barba-fox', name: 'Shampoo para barba Fox 120ml', brand: 'Fox', price: 70, stock: 11, min: 5, cost: 32 },
-    { id: 'minoxidil', name: 'Minoxidil', brand: '—', price: 140, stock: 6, min: 3, cost: 78 },
+    { id: 'minoxidil', name: 'Minoxidil', brand: '', price: 140, stock: 6, min: 3, cost: 78 },
     { id: 'toppik', name: 'Toppik', brand: 'Toppik', price: 100, stock: 4, min: 2, cost: 55 },
     { id: 'kemei', name: 'Máquina Kemei', brand: 'Kemei', price: 199.9, stock: 3, min: 2, cost: 118 },
     { id: 'relogio', name: 'Relógio Don Vintage', brand: 'Don Vintage', price: 249.5, stock: 5, min: 2, cost: 120 },

@@ -4,31 +4,34 @@
   <meta charset="utf-8">
   <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0c0b0a">
+  <meta name="theme-color" content="#1a1714">
   <title>Don Vintage Barbearia · Rio Branco</title>
-  <meta name="description" content="Barbearia clássica em Rio Branco - AC. Agende seu horário online.">
-  <link rel="stylesheet" href="assets/css/base.css?v=6">
-  <link rel="stylesheet" href="assets/css/site.css?v=6">
+  <meta name="description" content="Barbearia clássica em Rio Branco, Acre. Três unidades, Vintage Club e agendamento online.">
+  <link rel="icon" href="assets/img/bigode.png">
+  <link rel="stylesheet" href="assets/css/base.css?v=11">
+  <link rel="stylesheet" href="assets/css/site.css?v=11">
 </head>
-<body class="grain has-bottombar">
+<body class="has-bottombar">
 
   <header class="topbar" id="topbar">
     <div class="wrap topbar-in">
-      <a class="logo" href="#inicio" aria-label="Início">
+      <a class="logo" href="#inicio" aria-label="Don Vintage, voltar ao início">
         <span class="logo-mark">DV</span>
         <span class="logo-text"><b data-dv="name">Don Vintage</b><small>Barbearia</small></span>
       </a>
       <nav class="nav" id="nav" aria-label="Menu principal">
         <a href="#servicos">Serviços</a>
         <a href="#barbeiros">Barbeiros</a>
-        <a href="#clube">Clube</a>
+        <a href="#clube">Vintage Club</a>
         <a href="#casa">A casa</a>
         <a href="#avaliacoes">Avaliações</a>
         <a href="#local">Unidades</a>
       </nav>
       <div class="topbar-actions">
-        <a class="btn btn-primary btn-sm" href="agendar.html">Agendar</a>
-        <button class="burger" id="burger" aria-label="Abrir menu" aria-expanded="false" aria-controls="nav">
+        <!-- Selo da demo mora no header: fixo no canto, cobria conteúdo e a barra inferior do celular -->
+        <a class="demo-badge" href="index.html" title="Voltar para a proposta"><b>Demo</b><span class="demo-more"> · Proposta</span></a>
+        <a class="btn btn-primary btn-sm topbar-cta" href="agendar.html">Agendar</a>
+        <button class="burger" id="burger" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="nav">
           <span></span><span></span><span></span>
         </button>
       </div>
@@ -38,106 +41,106 @@
   <main>
     <!-- HERO -->
     <section class="hero" id="inicio">
-      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="hero-bg" aria-hidden="true"><div class="hero-photo"></div></div>
       <div class="wrap hero-in">
         <div class="hero-copy">
-          <p class="eyebrow hero-eyebrow" id="heroCity">Rio Branco · Acre</p>
+          <p class="eyebrow hero-eyebrow hero-step" id="heroCity">Rio Branco · Acre</p>
           <h1 class="hero-title">
-            <img class="hero-logo" src="assets/img/logo.png" width="478" height="272" alt="Don Vintage Barbearia — Tradicional &amp; Assinatura">
+            <img class="hero-logo" src="assets/img/logo.png" width="478" height="272" alt="Don Vintage Barbearia, tradicional e assinatura">
           </h1>
-          <div class="ornament hero-orn"><span>✦</span></div>
-          <p class="hero-tag" id="heroTag"></p>
-          <p class="hero-mission" id="heroMission"></p>
-          <div class="hero-meta" id="heroMeta"></div>
-          <div class="hero-ctas">
+          <p class="hero-tag hero-step" id="heroTag"></p>
+          <p class="hero-mission hero-step" id="heroMission"></p>
+          <div class="hero-meta hero-step" id="heroMeta"></div>
+          <div class="hero-ctas hero-step">
             <a class="btn btn-primary" href="agendar.html">Agendar horário</a>
-            <a class="btn btn-ghost" href="#servicos">Ver serviços</a>
+            <a class="btn btn-ghost" href="#servicos">Ver serviços e preços</a>
           </div>
-        </div>
-        <div class="hero-pole" aria-hidden="true">
-          <span class="cap"></span><span class="tube"><i></i></span><span class="cap"></span>
         </div>
       </div>
       <div class="pole"></div>
     </section>
 
     <!-- COMO FUNCIONA -->
-    <section class="how">
-      <div class="wrap how-in">
-        <div class="how-item"><b>1</b><span>Escolha o serviço</span></div>
-        <div class="how-item"><b>2</b><span>Seu barbeiro e horário</span></div>
-        <div class="how-item"><b>3</b><span>Lembrete no WhatsApp</span></div>
-      </div>
+    <section class="how" aria-label="Como agendar">
+      <ol class="wrap how-in">
+        <li><b>1</b><span>Escolha o serviço</span></li>
+        <li><b>2</b><span>Seu barbeiro e o horário</span></li>
+        <li><b>3</b><span>Lembrete no WhatsApp</span></li>
+      </ol>
     </section>
 
     <!-- SERVIÇOS -->
-    <section class="sec" id="servicos">
-      <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">Cardápio da casa</p>
-          <h2 class="display sec-title">Serviços</h2>
-          <p class="muted">Preços e duração atualizados. Agende em poucos toques.</p>
-        </header>
-        <div class="services" id="services"></div>
+    <section class="sec sec-services" id="servicos">
+      <div class="wrap services-in">
+        <figure class="services-photo" data-reveal>
+          <img src="assets/img/galeria/trabalho-2-tr.jpg" width="540" height="595" alt="Acabamento de barba na tesoura, com o cliente deitado na cadeira" loading="lazy">
+        </figure>
+        <div class="services-body">
+          <header class="sec-head" data-reveal>
+            <h2 class="display sec-title">Serviços e preços</h2>
+            <p class="muted">Os mais pedidos da casa. Toque em um para agendar.</p>
+          </header>
+          <ul class="svc-list" id="services"></ul>
+        </div>
       </div>
     </section>
 
     <!-- BARBEIROS -->
-    <section class="sec sec-alt" id="barbeiros">
+    <section class="sec sec-barbers" id="barbeiros">
       <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">Quem cuida de você</p>
-          <h2 class="display sec-title">Barbeiros</h2>
+        <header class="sec-head sec-head-split" data-reveal>
+          <h2 class="display sec-title">Escolha quem corta</h2>
+          <p class="muted" id="barbersSub">Toque na foto e agende direto com o seu barbeiro.</p>
         </header>
-        <div class="barbers" id="barbers"></div>
       </div>
+      <!-- Revela o trilho inteiro, não cada retrato: no trilho horizontal os retratos fora da tela
+           ficariam invisíveis e o pedaço do terceiro (que avisa que dá para rolar) sumiria. -->
+      <div class="barbers" id="barbers" data-reveal></div>
     </section>
 
     <!-- CLUBE -->
     <section class="sec club" id="clube">
-      <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">Clube de assinatura</p>
-          <h2 class="display sec-title" id="clubTitle">Vintage Club</h2>
-          <p class="muted">Um valor fixo por mês e você sempre alinhado. Pagamento recorrente no cartão ou Pix — cobra sozinho, você não precisa lembrar.</p>
+      <div class="wrap club-in">
+        <header class="club-head" data-reveal>
+          <p class="eyebrow club-kicker">Clube de assinatura</p>
+          <h2 class="display club-title" id="clubTitle">Vintage Club</h2>
+          <p class="club-lead">Um valor fixo por mês e você sempre alinhado. Cobra sozinho no cartão ou no Pix, você não precisa lembrar.</p>
+          <ul class="pay-tags" aria-label="Formas de pagamento">
+            <li>Cartão recorrente</li>
+            <li>Pix automático</li>
+            <li>Via Asaas</li>
+          </ul>
         </header>
         <div class="plans" id="plans"></div>
-        <div class="pay-tags">
-          <span class="chip brass">Cartão recorrente</span>
-          <span class="chip brass">Pix automático</span>
-          <span class="chip">Via Asaas</span>
-        </div>
       </div>
     </section>
 
     <!-- GALERIA -->
-    <section class="sec" id="casa">
+    <section class="sec sec-house" id="casa">
       <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">A casa</p>
-          <h2 class="display sec-title">Mais que um corte</h2>
-          <p class="muted">Poltrona de massagem, toalha quente e café com a nossa marca.</p>
+        <header class="sec-head sec-head-split" data-reveal>
+          <h2 class="display sec-title">Toalha quente, poltrona e café</h2>
+          <p class="muted">O corte é o começo. Tem massagem enquanto espera e chocolate no fim.</p>
         </header>
         <div class="gallery">
-          <figure class="g-item g-wide"><img src="assets/img/galeria/trabalho-2-tl.jpg" alt="Barbeiro finalizando um corte no salão" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/trabalho-3-tr.jpg" alt="Cliente sorrindo depois do corte" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/trabalho-2-tr.jpg" alt="Acabamento de barba na tesoura" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/ambiente-1-tl.jpg" alt="Cliente relaxando na poltrona de massagem" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/trabalho-1-tl.jpg" alt="Corte em andamento" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/trabalho-2-bl.jpg" alt="Barba com toalha quente" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/trabalho-3-bl.jpg" alt="Barbeiro na bancada com o logo Don Vintage" loading="lazy"></figure>
-          <figure class="g-item"><img src="assets/img/galeria/ambiente-1-bl.jpg" alt="Xícara com o logo Don Vintage" loading="lazy"></figure>
+          <figure class="g-item g-hero" data-reveal><img src="assets/img/galeria/trabalho-3-bl.jpg" width="540" height="385" alt="Barbeiro sorrindo durante um corte, com o letreiro Don Vintage na parede" loading="lazy"></figure>
+          <figure class="g-item g-tall" data-reveal><img src="assets/img/galeria/ambiente-1-tl.jpg" width="540" height="595" alt="Cliente de óculos escuros relaxando na poltrona de massagem" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/trabalho-3-tr.jpg" alt="Cliente sorrindo depois do corte" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/trabalho-2-bl.jpg" alt="Barba feita com toalha quente" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/ambiente-1-bl.jpg" alt="Xícara de café com o logo Don Vintage" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/trabalho-1-tl.jpg" alt="Corte na tesoura e pente, com o salão movimentado ao fundo" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/trabalho-3-tl.jpg" alt="Lavagem do cabelo no lavatório antes do corte" loading="lazy"></figure>
+          <figure class="g-item" data-reveal><img src="assets/img/galeria/trabalho-1-tr.jpg" alt="Barbeiro acertando o corte de um cliente diante do espelho iluminado" loading="lazy"></figure>
         </div>
-        <a class="btn btn-ghost g-insta" href="https://www.instagram.com/donvintagebarbearia/" target="_blank" rel="noopener">Ver mais no Instagram</a>
+        <a class="insta-link" href="https://www.instagram.com/donvintagebarbearia/" target="_blank" rel="noopener">Mais fotos no Instagram <span aria-hidden="true">→</span></a>
       </div>
     </section>
 
     <!-- AVALIAÇÕES -->
-    <section class="sec sec-alt" id="avaliacoes">
-      <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">Quem já sentou na cadeira</p>
-          <h2 class="display sec-title">Avaliações</h2>
+    <section class="sec sec-reviews" id="avaliacoes">
+      <div class="wrap reviews-in">
+        <header class="reviews-head" data-reveal>
+          <h2 class="display sec-title">Quem senta, volta</h2>
           <div id="ratingBig"></div>
         </header>
         <div class="reviews" id="reviews"></div>
@@ -145,31 +148,29 @@
     </section>
 
     <!-- LOCAL -->
-    <section class="sec" id="local">
+    <section class="sec sec-local" id="local">
       <div class="wrap">
-        <header class="sec-head">
-          <p class="eyebrow">Venha nos visitar</p>
+        <header class="sec-head sec-head-split" data-reveal>
           <h2 class="display sec-title" id="unitsTitle">Nossas unidades</h2>
           <p class="muted" id="unitsSub"></p>
         </header>
         <div class="units" id="units"></div>
         <div class="hours-wrap">
-          <ul class="hours card" id="hours" aria-label="Horário de funcionamento"></ul>
-          <div class="hours-note card">
-            <p class="eyebrow" id="openNow"></p>
+          <div class="hours-note" data-reveal>
+            <p class="open-now" id="openNow"></p>
             <h3>Agende antes, chegue na hora.</h3>
-            <p class="muted">Escolha a unidade, o barbeiro e o horário pelo celular. Você recebe confirmação e lembrete no WhatsApp.</p>
+            <p class="muted">Escolha a unidade, o barbeiro e o horário pelo celular. A confirmação e o lembrete chegam no WhatsApp.</p>
             <a class="btn btn-primary" href="agendar.html">Agendar horário</a>
           </div>
+          <ul class="hours" id="hours" aria-label="Horário de funcionamento" data-reveal></ul>
         </div>
       </div>
     </section>
 
     <!-- CTA FINAL -->
     <section class="final">
-      <div class="wrap final-in">
-        <p class="eyebrow">Cadeira esperando</p>
-        <h2 class="display">Seu próximo corte<br>está a 30 segundos.</h2>
+      <div class="wrap final-in" data-reveal>
+        <h2 class="display">Seu próximo corte está a 30 segundos.</h2>
         <a class="btn btn-primary" href="agendar.html">Agendar horário</a>
       </div>
     </section>
@@ -178,7 +179,7 @@
   <footer class="foot">
     <div class="pole"></div>
     <div class="wrap foot-in">
-      <a class="logo" href="#inicio">
+      <a class="logo" href="#inicio" aria-label="Don Vintage, voltar ao início">
         <span class="logo-mark">DV</span>
         <span class="logo-text"><b data-dv="name">Don Vintage</b><small>Barbearia</small></span>
       </a>
@@ -191,9 +192,8 @@
     <a class="btn btn-primary btn-block" href="agendar.html">Agendar horário</a>
   </div>
 
-  <a class="demo-badge" href="index.html"><b>Demo</b> · Proposta</a>
-
-  <script src="assets/js/data.js?v=6"></script>
-  <script src="assets/js/site.js?v=6"></script>
+  <script src="assets/js/data.js?v=11"></script>
+  <script src="assets/js/motion.js?v=11"></script>
+  <script src="assets/js/site.js?v=11"></script>
 </body>
 </html>

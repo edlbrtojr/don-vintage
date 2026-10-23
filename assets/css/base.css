@@ -1,38 +1,52 @@
-/* Don Vintage — base visual compartilhada (site, agendamento, painel, proposta).
-   Paleta da marca (Instagram/Canva da Don Vintage): preto + amarelo-ouro + branco,
-   com vinho/azul só na faixa do poste de barbeiro.
-   Mobile first: estilos base valem para ~360px; breakpoints só adicionam. */
+/* Don Vintage: base visual compartilhada (site, agendamento, painel, proposta).
+   Paleta da marca (Instagram/Canva da Don Vintage): preto, amarelo-ouro e branco envelhecido,
+   com vinho/azul só na faixa do poste de barbeiro. Neutros puxados para o âmbar (h≈75) para
+   não parecer cinza de template. Mobile first: base vale para ~360px; breakpoints só adicionam. */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+/* Barlow Condensed é a condensada mais próxima do letreiro do logo oficial (estilo DIN de placa);
+   Barlow no corpo mantém a mesma família. Trocar a fonte aqui troca em todas as telas. */
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;1,600;1,700&family=Barlow:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #0c0b0a;
-  --bg-2: #141210;
-  --surface: #1a1815;
-  --surface-2: #23201c;
-  --line: #34302a;
-  --line-soft: rgba(233, 220, 196, .08);
-  --text: #f3efe6;
-  --muted: #a69f93;
-  --faint: #6b655c;
-  --brass: #f2c21b;
-  --brass-2: #ffd84a;
-  --brass-ink: #0c0b0a;
-  --wine: #9b2c2c;
-  --wine-2: #c0453f;
-  --ok: #6fae7d;
-  --warn: #d9a441;
-  --bad: #d0584f;
-  --info: #6f9fc9;
+  --bg: oklch(0.16 0.006 75);
+  --bg-2: oklch(0.19 0.007 75);
+  --surface: oklch(0.215 0.008 75);
+  --surface-2: oklch(0.255 0.009 75);
+  --line: oklch(0.33 0.01 75);
+  --line-soft: oklch(0.93 0.02 85 / 0.08);
+  --text: oklch(0.955 0.012 85);
+  --muted: oklch(0.74 0.014 80);
+  --faint: oklch(0.54 0.012 80);
+  --brass: oklch(0.84 0.165 90);
+  --brass-2: oklch(0.9 0.14 93);
+  --brass-ink: oklch(0.17 0.01 75);
+  --wine: oklch(0.45 0.13 25);
+  --wine-2: oklch(0.58 0.15 27);
+  --pole-blue: oklch(0.42 0.08 255);
+  --ok: oklch(0.72 0.1 150);
+  --warn: oklch(0.78 0.13 75);
+  --bad: oklch(0.65 0.16 27);
+  --info: oklch(0.7 0.08 245);
 
-  --f-display: 'Fraunces', Georgia, serif;
-  --f-label: 'Oswald', 'Arial Narrow', sans-serif;
-  --f-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --f-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-body: 'Barlow', system-ui, -apple-system, sans-serif;
+
+  /* Movimento: curvas exponenciais de desaceleração; nada de bounce/elastic.
+     d-1 resposta de toque, d-2 mudança de estado, d-3 painéis/folhas, d-4 entradas. */
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --d-1: 120ms;
+  --d-2: 220ms;
+  --d-3: 360ms;
+  --d-4: 680ms;
 
   --r-sm: 8px;
   --r: 14px;
   --r-lg: 22px;
-  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --shadow: 0 10px 30px oklch(0.1 0.01 75 / 0.45);
   --gutter: 16px;
   --max: 1160px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -44,7 +58,8 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 400 15px/1.55 var(--f-body);
+  /* +0.05 de entrelinha: texto claro em fundo escuro pesa menos e precisa respirar */
+  font: 400 16px/1.6 var(--f-body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -52,120 +67,150 @@ img { max-width: 100%; display: block; }
 a { color: inherit; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-
-/* Grão de papel antigo sobre tudo — sutil o bastante para não atrapalhar leitura. */
-.grain::before {
-  content: '';
-  position: fixed; inset: 0;
-  pointer-events: none; z-index: 999;
-  opacity: .06;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+::selection { background: var(--brass); color: var(--brass-ink); }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-radius: 4px; }
 
 .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 
 /* Tipografia */
-.display { font-family: var(--f-display); font-weight: 800; letter-spacing: -.01em; line-height: 1.05; }
+.display { font-family: var(--f-display); font-weight: 700; letter-spacing: -0.005em; line-height: 0.98; text-wrap: balance; }
 .eyebrow {
-  font-family: var(--f-label); font-weight: 500;
-  text-transform: uppercase; letter-spacing: .22em; font-size: 12px;
+  font-family: var(--f-label); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em; font-size: 14px;
   color: var(--brass);
 }
-.label { font-family: var(--f-label); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); }
+.label { font-family: var(--f-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 13px; color: var(--muted); }
 .muted { color: var(--muted); }
 .brass { color: var(--brass); }
 h1, h2, h3 { margin: 0; }
-p { margin: 0; }
+p { margin: 0; text-wrap: pretty; }
 
 /* Ornamento de divisória */
 .ornament { display: flex; align-items: center; gap: 12px; color: var(--brass); }
-.ornament::before, .ornament::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--brass) 50%, transparent); opacity: .5; }
+.ornament::before, .ornament::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--brass) 50%, transparent); opacity: 0.5; }
 
-/* Botões */
+/* Botões: hover levanta 1px, toque afunda (escala 0.97 em d-1), foco em anel amarelo.
+   .is-loading troca o rótulo por um spinner sem mudar a largura do botão. */
 .btn {
+  position: relative;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 48px; padding: 0 22px;
+  min-height: 50px; padding: 0 24px;
   border-radius: 999px; border: 1px solid transparent;
-  font-family: var(--f-label); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; font-size: 14px;
-  text-decoration: none; transition: transform .15s, background .15s, border-color .15s, opacity .15s;
+  font-family: var(--f-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 16px;
+  text-decoration: none; user-select: none;
+  transition: transform var(--d-1) var(--ease-out), background-color var(--d-2) var(--ease-out),
+    border-color var(--d-2) var(--ease-out), box-shadow var(--d-2) var(--ease-out), opacity var(--d-2) var(--ease-out);
   -webkit-tap-highlight-color: transparent;
 }
-.btn:active { transform: scale(.97); }
+@media (hover: hover) {
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary:hover { background: var(--brass-2); box-shadow: 0 8px 24px color-mix(in oklch, var(--brass) 28%, transparent); }
+  .btn-ghost:hover { border-color: var(--brass); }
+}
+.btn:active { transform: scale(0.97); transition-duration: 60ms; }
 .btn-primary { background: var(--brass); color: var(--brass-ink); }
-.btn-primary:hover { background: var(--brass-2); }
 .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
-.btn-ghost:hover { border-color: var(--brass); }
-.btn-wine { background: var(--wine); color: #fff; }
+.btn-wine { background: var(--wine); color: var(--text); }
 .btn-block { width: 100%; }
-.btn[disabled] { opacity: .4; pointer-events: none; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.38; pointer-events: none; }
+.btn.is-loading { color: transparent; pointer-events: none; }
+.btn.is-loading::after {
+  content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--brass-ink); border-right-color: transparent;
+  animation: dv-spin 700ms linear infinite;
+}
+.btn-ghost.is-loading::after { border-color: var(--text); border-right-color: transparent; }
 
 /* Cartões e chips */
 .card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r); }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 500;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--line-soft);
 }
-.chip.ok { color: var(--ok); background: rgba(111, 174, 125, .12); }
-.chip.warn { color: var(--warn); background: rgba(217, 164, 65, .12); }
-.chip.bad { color: var(--bad); background: rgba(208, 88, 79, .12); }
-.chip.info { color: var(--info); background: rgba(111, 159, 201, .12); }
-.chip.brass { color: var(--brass); background: rgba(242, 194, 27, .12); }
+.chip.ok { color: var(--ok); background: color-mix(in oklch, var(--ok) 14%, transparent); }
+.chip.warn { color: var(--warn); background: color-mix(in oklch, var(--warn) 14%, transparent); }
+.chip.bad { color: var(--bad); background: color-mix(in oklch, var(--bad) 14%, transparent); }
+.chip.info { color: var(--info); background: color-mix(in oklch, var(--info) 14%, transparent); }
+.chip.brass { color: var(--brass); background: color-mix(in oklch, var(--brass) 13%, transparent); }
 
-/* Avatar com iniciais (sem depender de fotos externas) */
+/* Avatar: foto real quando há; iniciais só para clientes fictícios da demo */
 .avatar {
   --s: 44px;
   width: var(--s); height: var(--s); flex: none;
   border-radius: 50%;
   display: grid; place-items: center;
-  font-family: var(--f-display); font-weight: 600; font-size: calc(var(--s) * .38);
+  font-family: var(--f-display); font-weight: 700; font-size: calc(var(--s) * 0.42);
   color: var(--brass-ink);
-  background: linear-gradient(135deg, var(--brass-2), var(--brass));
+  background: var(--brass);
   overflow: hidden;
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Logo tipográfico */
+/* Logo */
 .logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 /* O selo usa o bigode do logo oficial (recortado de assets/img/logo-original.jpg).
    O texto "DV" continua no HTML para leitores de tela e some só visualmente. */
 .logo-mark {
   width: 40px; height: 40px; border-radius: 50%; flex: none;
   border: 1.5px solid var(--brass);
-  background: #000 url('../img/bigode.png') center / 74% auto no-repeat;
+  background: var(--brass-ink) url('../img/bigode.png') center / 74% auto no-repeat;
   color: transparent; font-size: 0; overflow: hidden;
+  transition: transform var(--d-3) var(--ease-out-expo);
 }
+.logo:hover .logo-mark { transform: rotate(-8deg); }
 .logo-text { display: flex; flex-direction: column; line-height: 1; }
-/* Logo oficial usa caixa-alta condensada; Oswald é o mais próximo no Google Fonts. */
-.logo-text b { font-family: var(--f-label); font-weight: 600; font-size: 19px; letter-spacing: .08em; text-transform: uppercase; }
+.logo-text b { font-family: var(--f-label); font-weight: 700; font-size: 21px; letter-spacing: 0.06em; text-transform: uppercase; }
+.logo-text small { font-family: var(--f-label); font-weight: 600; font-size: 11px; letter-spacing: 0.3em; color: var(--brass); text-transform: uppercase; margin-top: 2px; }
 .logo-full { display: block; width: min(280px, 72vw); height: auto; }
-.logo-text small { font-family: var(--f-label); font-size: 9.5px; letter-spacing: .32em; color: var(--brass); text-transform: uppercase; margin-top: 3px; }
 
 /* Faixa do poste de barbeiro */
-.pole { height: 6px; background: repeating-linear-gradient(-45deg, var(--wine) 0 10px, var(--text) 10px 20px, #2b4a73 20px 30px, var(--text) 30px 40px); opacity: .85; }
+.pole { height: 6px; background: repeating-linear-gradient(-45deg, var(--wine) 0 10px, var(--text) 10px 20px, var(--pole-blue) 20px 30px, var(--text) 30px 40px); opacity: 0.85; }
 
 /* Formulários */
 .field { display: flex; flex-direction: column; gap: 6px; }
 .input {
-  min-height: 50px; padding: 0 14px;
+  min-height: 52px; padding: 0 14px;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
   font-size: 16px; /* 16px evita zoom automático no iOS */
+  transition: border-color var(--d-2) var(--ease-out), box-shadow var(--d-2) var(--ease-out);
 }
-.input:focus { border-color: var(--brass); outline: none; }
+.input:focus { border-color: var(--brass); outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--brass) 22%, transparent); }
+.input[aria-invalid="true"] { border-color: var(--bad); animation: dv-shake 320ms var(--ease-out); }
 
-/* Selo "demonstração" — deixa claro que é protótipo de proposta */
+/* Selo "demonstração": deixa claro que é protótipo de proposta */
 .demo-badge {
   position: fixed; left: 12px; bottom: calc(12px + var(--safe-bottom)); z-index: 60;
-  font-family: var(--f-label); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
-  padding: 6px 10px; border-radius: 999px;
-  background: rgba(20, 16, 13, .85); border: 1px solid var(--line); color: var(--muted);
-  text-decoration: none; backdrop-filter: blur(6px);
+  font-family: var(--f-label); font-weight: 600; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--muted);
+  text-decoration: none;
+  transition: border-color var(--d-2) var(--ease-out), color var(--d-2) var(--ease-out);
 }
-.demo-badge b { color: var(--brass); font-weight: 500; }
+.demo-badge:hover { border-color: var(--brass); color: var(--text); }
+.demo-badge b { color: var(--brass); font-weight: 700; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* Revelação no scroll (assets/js/motion.js). Só esconde quando o JS rodou (html.js),
+   então sem JS o conteúdo aparece normal. --i escalona irmãos em 70ms, limitado no JS. */
+html.js [data-reveal] { opacity: 0; transform: translateY(18px); }
+html.js [data-reveal].is-in {
+  opacity: 1; transform: none;
+  transition: opacity var(--d-4) var(--ease-out-expo), transform var(--d-4) var(--ease-out-expo);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+@keyframes dv-spin { to { transform: rotate(360deg); } }
+@keyframes dv-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-5px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+@keyframes dv-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes dv-pop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+
+/* Movimento reduzido: troca deslocamento por fade curto em vez de cortar tudo,
+   para que confirmações (check, toast) continuem perceptíveis. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 120ms !important; transition-delay: 0ms !important; }
+  html.js [data-reveal] { transform: none; }
+  .btn.is-loading::after { animation: dv-spin 1.6s linear infinite !important; }
 }

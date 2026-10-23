@@ -17,12 +17,13 @@
   const MES = P.today.toLocaleDateString('pt-BR', { month: 'long' });
   const MES_ANT = new Date(P.today.getFullYear(), P.today.getMonth() - 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
   const fDay = d => d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
-  const agoTxt = a => a == null ? '—' : a === 0 ? 'hoje' : a === 1 ? 'ontem' : `há ${a} dias`;
+  const agoTxt = a => a == null ? 'Sem registro' : a === 0 ? 'hoje' : a === 1 ? 'ontem' : `há ${a} dias`;
   const unitName = id => (P.unitById[id] || {}).name || '';
   const bookLink = () => { try { return new URL(DV.links.agendar || 'agendar.html', location.href).href; } catch (e) { return DV.links.agendar; } };
 
   const METHOD = { pix: 'Pix', cartao: 'Cartão', dinheiro: 'Dinheiro', plano: CLUB, assinatura: CLUB, boleto: 'Boleto' };
-  const STATUS = { confirmado: ['Confirmado', 'info'], atendimento: ['Em atendimento', 'brass'], concluido: ['Concluído', 'ok'], faltou: ['Faltou', 'bad'] };
+  // [rótulo, tom, ícone]: o ícone garante que o status não dependa só da cor (unidade com destaque de inclusão).
+  const STATUS = { confirmado: ['Confirmado', 'info', 'calendar'], atendimento: ['Em atendimento', 'brass', 'scissors'], concluido: ['Concluído', 'ok', 'check'], faltou: ['Faltou', 'bad', 'x'] };
   const SUBST = { confirmado: ['Confirmado', 'ok'], pendente: ['Pendente', 'warn'], vencido: ['Vencido', 'bad'] };
 
   const ICONS = {
@@ -71,7 +72,14 @@
   const avatar = (name, s) => `<span class="avatar"${s ? ` style="--s:${s}px"` : ''}>${esc(ini(name))}</span>`;
   // Barbeiros têm foto real (data.js); clientes fictícios ficam com iniciais.
   const bAvatar = (b, s) => b.photo ? `<span class="avatar"${s ? ` style="--s:${s}px"` : ''}><img src="${esc(b.photo)}" alt="" loading="lazy"></span>` : avatar(b.name, s);
-  const kpi = (label, icon, v, s, tone = '') => `<div class="card kpi ${tone}"><span class="label">${ic(icon)}${label}</span><span class="v">${v}</span>${s ? `<span class="s">${s}</span>` : ''}</div>`;
+  /* KPIs em dois níveis: kh = número principal da tela (no máx. 2), kc = compacto dentro de .kstrip. */
+  const kh = (label, icon, v, s) => `<div class="card kh"><span class="kh-l">${ic(icon)}${label}</span><span class="kh-v">${v}</span>${s ? `<span class="kh-s">${s}</span>` : ''}</div>`;
+  const kc = (label, v, s, tone = '') => `<div class="kc ${tone}"><span class="kc-l">${tone === 'bad' ? ic('alert') : ''}${label}</span><span class="kc-v">${v}</span>${s ? `<span class="kc-s">${s}</span>` : ''}</div>`;
+  const kstrip = (items, cls = '') => `<div class="kstrip ${cls}">${items.join('')}</div>`;
+  /* Número que conta do valor antigo ao novo quando a tela re-renderiza no lugar (troca de unidade,
+     venda, pagamento). data-count é a chave estável entre renders; data-to o valor bruto. */
+  const FMT = { brl0, brl, int: v => Math.round(v).toLocaleString('pt-BR'), pct: v => pct(v) };
+  const cnum = (key, v, f = 'brl0') => `<span data-count="${key}" data-f="${f}" data-to="${v || 0}">${FMT[f](v)}</span>`;
   const bar = (v, tone = '') => `<div class="bar ${tone}"><i style="width:${Math.max(0, Math.min(100, v * 100)).toFixed(1)}%"></i></div>`;
   const unitLabel = () => P.S.unit === 'all' ? 'Todas as unidades' : `Unidade ${unitName(P.S.unit)}`;
   function withUnit(u, fn) { const old = P.S.unit; P.S.unit = u; try { return fn(); } finally { P.S.unit = old; } }
@@ -94,9 +102,9 @@
   const view = $('#view');
 
   function nav() {
-    $('#sideNav').innerHTML = Object.entries(ROUTES).map(([k, r]) => `<a href="#${k}" data-r="${k}">${ic(r.i)}<span>${esc(r.t)}</span>${r.star ? '<span class="tag">Carro-chefe</span>' : ''}</a>`).join('');
+    $('#sideNav').innerHTML = '<span class="side-ind no-anim" aria-hidden="true"></span>' + Object.entries(ROUTES).map(([k, r]) => `<a href="#${k}" data-r="${k}">${ic(r.i)}<span>${esc(r.t)}</span>${r.star ? '<span class="tag">Carro-chefe</span>' : ''}</a>`).join('');
     $('#bnav').innerHTML = MAIN.map(k => `<a href="#${k}" data-r="${k}" class="${ROUTES[k].star ? 'star' : ''}">${ic(ROUTES[k].i)}<span>${esc(ROUTES[k].short || ROUTES[k].t)}</span></a>`).join('') +
-      `<button type="button" data-act="more" data-r="mais">${ic('more')}<span>Mais</span></button>`;
+      `<button type="button" data-act="more" data-r="mais">${ic('more')}<span>Mais</span></button><span class="bnav-ind no-anim" aria-hidden="true"></span>`;
     const sel = () => `<span class="unit-wrap"><select class="unit-select" data-unit aria-label="Unidade"><option value="all">Todas as unidades</option>${P.units.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select>${ic('chevd')}</span>`;
     $('.top .logo').insertAdjacentHTML('afterend', sel());
     $('.side-logo').insertAdjacentHTML('afterend', sel());
@@ -105,48 +113,122 @@
     const inMore = !MAIN.includes(cur);
     document.querySelectorAll('[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === cur || (a.dataset.r === 'mais' && inMore)));
     document.querySelectorAll('[data-unit]').forEach(s => { s.value = P.S.unit; });
+    // Indicadores deslizantes: bottom nav por índice da coluna, sidebar pelo offsetTop do item ativo.
+    const bi = $('.bnav-ind'), si = $('.side-ind');
+    if (bi) bi.style.setProperty('--i', inMore ? MAIN.length : MAIN.indexOf(cur));
+    const sa = $(`#sideNav a[data-r="${cur}"]`);
+    if (si && sa && sa.offsetParent) si.style.setProperty('--y', sa.offsetTop + 'px');
+    // Primeira posição sem transição; depois disso, toda troca desliza.
+    setTimeout(() => document.querySelectorAll('.bnav-ind.no-anim, .side-ind.no-anim').forEach(x => { void x.offsetWidth; x.classList.remove('no-anim'); }), 60);
   }
-  function render(keep) {
+  function render(keep, enter) {
     const y = window.scrollY;
     const r = ROUTES[cur];
     after = [];
+    const prev = {};
+    if (keep) view.querySelectorAll('[data-count]').forEach(el => { prev[el.dataset.count] = +el.dataset.to; });
     view.innerHTML = r.v(params);
     document.title = `${r.t} · Painel Don Vintage`;
     $('#topTitle').textContent = r.t;
     markNav();
     after.forEach(f => f());
     if (keep) window.scrollTo(0, y);
+    countFrom(view, prev);
+    if (enter && !DV.motion.reduced()) { view.classList.remove('enter'); void view.offsetWidth; view.classList.add('enter'); }
     const n = alerts().filter(a => a.tone === 'bad' || a.tone === 'warn').length;
     $('#alertDot').textContent = n ? ' ' : '';
   }
-  let entered = false;
+  function countFrom(root, prev) {
+    root.querySelectorAll('[data-count]').forEach(el => {
+      const from = prev[el.dataset.count], to = +el.dataset.to;
+      if (from != null && from !== to) DV.motion.countUp(el, to, FMT[el.dataset.f] || brl0, from);
+    });
+  }
+  view.addEventListener('animationend', e => { if (e.target === view) view.classList.remove('enter'); });
+  let entered = false, growChart = false;
   function onRoute() {
     const [n, q] = location.hash.slice(1).split('?');
     cur = ROUTES[n] ? n : 'inicio';
     params = new URLSearchParams(q || '');
-    closeSheet();
+    closeSheet(true);
     entered = true;
-    render();
+    growChart = cur === 'inicio';
+    render(false, true);
     window.scrollTo(0, 0);
   }
-  function refresh() { render(true); if (sheetFn) $('#sheetBody').innerHTML = sheetFn(); }
+  function refresh() {
+    render(true);
+    if (sheetFn) {
+      const sb = $('#sheetBody'), prev = {};
+      sb.querySelectorAll('[data-count]').forEach(el => { prev[el.dataset.count] = +el.dataset.to; });
+      sb.innerHTML = sheetFn();
+      countFrom(sb, prev);
+    }
+  }
 
   /* ---------- Sheet ---------- */
-  let sheetFn = null;
+  let sheetFn = null, sheetTrigger = null, closeT = null;
+  const sheetW = $('#sheet');
   function openSheet(title, fn) {
+    const wasOpen = !sheetW.hidden && !sheetW.classList.contains('closing');
+    if (!wasOpen) sheetTrigger = document.activeElement;
+    clearTimeout(closeT); sheetW.classList.remove('closing');
     sheetFn = fn;
     $('#sheetTitle').textContent = title;
-    $('#sheetBody').innerHTML = fn();
-    const w = $('#sheet'); w.hidden = false;
-    $('.sheet', w).scrollTop = 0;
+    const sb = $('#sheetBody');
+    sb.innerHTML = fn();
+    // Trocar de folha com ela aberta (ex.: atendimento → ficha) só cruza o conteúdo, sem subir de novo.
+    if (wasOpen) { sb.classList.remove('swap'); void sb.offsetWidth; sb.classList.add('swap'); }
+    sheetW.hidden = false;
+    $('.sheet', sheetW).scrollTop = 0;
     document.body.classList.add('lock');
+    $('.sheet-head .icon-btn', sheetW).focus({ preventScroll: true });
   }
-  function closeSheet() { sheetFn = null; $('#sheet').hidden = true; document.body.classList.remove('lock'); apptMode = null; }
+  // Saída em 220ms (pv-sink/pv-pop-out em painel.css); `now` fecha sem animar (troca de rota).
+  function closeSheet(now) {
+    if (sheetW.hidden) return;
+    sheetFn = null; apptMode = null;
+    document.body.classList.remove('lock');
+    const done = () => { sheetW.hidden = true; sheetW.classList.remove('closing'); };
+    // Ações costumam re-renderizar a tela logo depois de fechar (render(true)), trocando o botão
+    // que abriu a folha. Por isso o foco volta no próximo frame, pelo mesmo data-act/data-id se preciso.
+    const t = sheetTrigger; sheetTrigger = null;
+    if (t && !now) {
+      const sel = t.dataset && t.dataset.act ? `[data-act="${t.dataset.act}"]${t.dataset.id ? `[data-id="${CSS.escape(t.dataset.id)}"]` : ''}${t.dataset.k ? `[data-k="${t.dataset.k}"]` : ''}` : null;
+      setTimeout(() => {
+        const el = t.isConnected ? t : sel && $(`#view ${sel}, .bnav ${sel}, .top ${sel}`);
+        if (el) el.focus({ preventScroll: true });
+      }, 0);
+    }
+    if (now) { clearTimeout(closeT); done(); return; }
+    sheetW.classList.add('closing');
+    clearTimeout(closeT); closeT = setTimeout(done, 230);
+  }
   let toastT;
-  function toast(msg) {
-    const t = $('#toast'); t.innerHTML = ic('check') + `<span>${msg}</span>`; t.classList.add('show');
-    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3200);
+  // role="status" no HTML: leitor de tela anuncia sem roubar o foco. Some sozinho em 2,5s.
+  function toast(msg, tone) {
+    const t = $('#toast'); t.className = 'toast' + (tone ? ' ' + tone : '');
+    t.innerHTML = ic(tone === 'warn' ? 'alert' : 'check') + `<span>${msg}</span>`;
+    void t.offsetWidth; t.classList.add('show');
+    clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2500);
   }
+  /* Ação com retorno: spinner curto (~500ms, o tempo de "falar com o Asaas/WhatsApp"),
+     depois executa e pisca o item afetado. */
+  const BUSY_MS = 500;
+  function busy(el, fn) {
+    if (!el || el.classList.contains('is-loading')) return;
+    el.classList.add('is-loading'); el.setAttribute('aria-busy', 'true');
+    DV.motion.haptic(8);
+    setTimeout(() => { el.classList.remove('is-loading'); el.removeAttribute('aria-busy'); fn(); }, BUSY_MS);
+  }
+  function flash(id) {
+    if (!id) return;
+    // setTimeout e não rAF: roda depois do render síncrono mesmo com a aba sem pintar frames.
+    setTimeout(() => document.querySelectorAll(`[data-flash="${CSS.escape(id)}"]`).forEach(el => {
+      el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    }), 0);
+  }
+  document.addEventListener('animationend', e => { if (e.target.classList && e.animationName === 'pv-flash') e.target.classList.remove('flash'); });
 
   /* ---------- Alertas ---------- */
   function alerts() {
@@ -188,16 +270,18 @@
       <h1 class="display">${greet}${owner ? ', ' + esc(owner) : ''}.</h1>
       <p class="muted"><span class="live">Agora ${P.hhmm(P.NOW)}</span> · ${d.inService} em atendimento${nx ? ` · próximo às ${P.hhmm(nx.start)} com ${esc(P.barberById[nx.b].name)}` : ''}</p>
     </section>
-    <div class="kpis k4">
-      ${kpi('Faturamento hoje', 'wallet', brl0(d.total), `${d.done} atendimentos concluídos`, 'brass')}
-      ${kpi('Faturamento do mês', 'trend', brl0(m.receita), `<span class="${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${pct(Math.abs(delta), 1)}</span> vs. ${MES_ANT} (serviços e produtos)`)}
-      ${kpi('Atendimentos hoje', 'scissors', `${d.done}<span class="muted" style="font-size:.6em"> / ${d.booked}</span>`, `${m.atend} no mês · ${d.faltas} falta${d.faltas === 1 ? '' : 's'} hoje`)}
-      ${kpi('Ticket médio', 'card', brl(m.ticket), `Avulso, no mês · hoje ${brl(d.ticket)}`)}
-      ${kpi('Ocupação hoje', 'clock', pct(d.occ), bar(d.occ, d.occ > .85 ? 'ok' : ''))}
-      ${kpi(`MRR ${esc(CLUB)}`, 'crown', brl0(ss.mrr), `${ss.n} assinantes ativos`, 'brass')}
-      ${kpi('Inadimplência', 'alert', brl0(ss.lateV), `${ss.late} cobranças vencidas · ${pct(ss.mrr ? ss.lateV / ss.mrr : 0, 1)} do MRR`, ss.late ? 'bad' : '')}
-      ${kpi('Resultado do mês', 'zap', brl0(m.lucro), `Margem ${pct(m.receita ? m.lucro / m.receita : 0)} · ver DRE`)}
+    <div class="khs">
+      ${kh('Faturamento hoje', 'wallet', cnum('k-hoje', d.total), `${d.done} atendimentos concluídos`)}
+      ${kh('Faturamento do mês', 'trend', cnum('k-mes', m.receita), `<span class="${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '▲' : '▼'} ${pct(Math.abs(delta), 1)}</span> vs. ${MES_ANT}`)}
     </div>
+    ${kstrip([
+      kc('Atendimentos hoje', `${cnum('k-done', d.done, 'int')}<small> de ${cnum('k-booked', d.booked, 'int')}</small>`, `${d.faltas} falta${d.faltas === 1 ? '' : 's'} · ${m.atend} no mês`),
+      kc('Ticket médio', cnum('k-ticket', m.ticket, 'brl'), `Avulso no mês · hoje ${brl(d.ticket)}`),
+      kc('Ocupação hoje', cnum('k-occ', d.occ, 'pct'), bar(d.occ, d.occ > .85 ? 'ok' : '')),
+      kc(`MRR ${esc(CLUB)}`, cnum('k-mrr', ss.mrr), `${ss.n} assinantes ativos`),
+      kc('Inadimplência', cnum('k-late', ss.lateV), `${ss.late} vencidas · ${pct(ss.mrr ? ss.lateV / ss.mrr : 0, 1)} do MRR`, ss.late ? 'bad' : ''),
+      kc('Resultado do mês', cnum('k-lucro', m.lucro), `Margem ${pct(m.receita ? m.lucro / m.receita : 0)}`),
+    ], 'k6')}
 
     ${P.units.length > 1 ? `<section class="mt">
       <div class="sec-t"><h2>Comparativo das unidades</h2><span class="small muted">Toque para filtrar</span></div>
@@ -247,11 +331,11 @@
   function miniDre(m) {
     const line = (l, v, cls = '') => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line-soft)" class="${cls}"><span class="muted">${l}</span><b class="num">${brl0(v)}</b></div>`;
     return line('Receita bruta', m.receita) + line('Comissões', -m.comm) + line('Despesas + CMV + taxas', -(m.exp + m.cmv + m.fees)) +
-      `<div style="display:flex;justify-content:space-between;padding-top:10px"><b>Resultado</b><b class="num ${m.lucro >= 0 ? 'up' : 'down'}" style="font-size:20px">${brl0(m.lucro)}</b></div>`;
+      `<div style="display:flex;justify-content:space-between;padding-top:10px"><b>Resultado</b><b class="num ${m.lucro >= 0 ? 'up' : 'down'}" style="font-size:20px">${cnum('dre-lucro', m.lucro)}</b></div>`;
   }
   function apptRow(a) {
     const c = P.clientById[a.c], s = P.svc[a.s], st = STATUS[a.status];
-    return `<button class="row" data-act="appt" data-id="${a.id}"><span class="time">${P.hhmm(a.start)}<small>${P.svc[a.s].durationMin} min</small></span>${avatar(c.name, 38)}
+    return `<button class="row" data-act="appt" data-id="${a.id}" data-flash="${a.id}"><span class="time">${P.hhmm(a.start)}<small>${P.svc[a.s].durationMin} min</small></span>${avatar(c.name, 38)}
       <span class="grow"><span class="t">${esc(c.name)}</span><span class="d">${esc(s.name)} · ${esc(P.barberById[a.b].name)}${P.S.unit === 'all' ? ' · ' + esc(unitName(a.u)) : ''}</span></span>
       <span class="end chips" style="flex-direction:column;align-items:flex-end">${a.status === 'atendimento' ? chip(st[0], st[1]) : ''}${c.sub ? chip(ic('crown') + 'Club', c.sub.status === 'vencido' ? 'bad' : 'brass') : ''}</span></button>`;
   }
@@ -273,14 +357,17 @@
     for (let v = 0; v <= top; v += step) g += `<line class="grid-l" x1="${pl}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end">${v >= 1000 ? nf(v / 1000) + ' mil' : v}</text>`;
     const bars = data.map((x, i) => {
       const hh = Math.max(x.open ? 2 : 1, y(0) - y(x.v));
-      return `<rect class="bar-r ${x.ago === 0 ? 'today' : ''} ${chartSel === i ? 'sel' : ''}" data-i="${i}" x="${(pl + i * bw + bw * .16).toFixed(1)}" y="${(y(0) - hh).toFixed(1)}" width="${(bw * .68).toFixed(1)}" height="${hh.toFixed(1)}" rx="2"/>`;
+      return `<rect class="bar-r ${x.ago === 0 ? 'today' : ''} ${chartSel === i ? 'sel' : ''}" data-i="${i}" style="--i:${i}" x="${(pl + i * bw + bw * .16).toFixed(1)}" y="${(y(0) - hh).toFixed(1)}" width="${(bw * .68).toFixed(1)}" height="${hh.toFixed(1)}" rx="2"/>`;
     }).join('');
     const labels = data.map((x, i) => (data.length - 1 - i) % 7 === 0 ? `<text x="${pl + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${x.ago === 0 ? 'hoje' : x.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</text>` : '').join('');
+    // Barras crescem só na primeira pintura depois de entrar na aba; resize e refresh redesenham parado.
+    host.classList.toggle('grow', growChart && !DV.motion.reduced());
+    growChart = false;
     host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Faturamento diário dos últimos 30 dias">${g}<line class="avg" x1="${pl}" x2="${W}" y1="${y(avg)}" y2="${y(avg)}"/>${bars}${labels}</svg>`;
     const tot = sum(data, x => x.v);
     const show = i => {
       const ro = $('#readout'); if (!ro) return;
-      if (i == null) { ro.innerHTML = `<b>${brl0(tot)}</b><span class="muted small">em 30 dias · média ${brl0(avg)} por dia aberto (linha tracejada)</span>`; return; }
+      if (i == null) { ro.innerHTML = `<b>${cnum('ch-tot', tot)}</b><span class="muted small">em 30 dias · média ${brl0(avg)} por dia aberto (linha tracejada)</span>`; return; }
       const x = data[i];
       ro.innerHTML = `<b>${brl0(x.v)}</b><span class="muted small">${esc(fDay(x.date))}${x.ago === 0 ? ' · parcial' : ''}${x.open ? '' : ' · fechado'}</span>`;
     };
@@ -305,7 +392,7 @@
     <div class="ph"><div><p class="eyebrow">${esc(P.today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))}</p><h1 class="display">Agenda de hoje</h1>
       <p class="sub">${d.booked} agendamentos · ${d.done} concluídos · ocupação ${pct(d.occ)} · ${esc(unitLabel())}</p></div>
       <div class="ph-act"><button class="btn btn-primary btn-sm" data-act="newAppt">${ic('plus')}Novo agendamento</button></div></div>
-    <div class="legend">${Object.entries(STATUS).map(([k, v]) => `<span class="st-${k}"><i></i>${v[0]}</span>`).join('')}<span><i style="background:var(--line)"></i>Bloqueio / intervalo</span><span>${ic('crown')} ${esc(CLUB)}</span></div>
+    <div class="legend">${Object.entries(STATUS).map(([k, v]) => `<span class="st-${k}">${ic(v[2])}${v[0]}</span>`).join('')}<span>${ic('lock')}Bloqueio ou intervalo</span><span style="--st:var(--brass)">${ic('crown')}${esc(CLUB)}</span></div>
     ${desk ? '' : `<div class="seg" role="tablist">${bars.map(b => `<button class="${b.id === agB ? 'on' : ''}" data-act="pickB" data-id="${b.id}" role="tab" aria-selected="${b.id === agB}">${bAvatar(b)}${esc(b.name)} <span class="n">${cnt(b.id)}</span></button>`).join('')}</div>`}
     ${list.length ? timeline(list) : '<p class="empty">Nenhum barbeiro nesta unidade.</p>'}`;
   }
@@ -332,8 +419,8 @@
         const c = P.clientById[a.c], s = P.svc[a.s];
         const h = (a.end - a.start) * ppm - 3;
         const compact = h < 50;
-        return `<button class="ev st-${a.status} ${compact ? 'compact' : ''}" style="top:${y(a.start)}px;height:${h}px" data-act="appt" data-id="${a.id}" aria-label="${esc(c.name)}, ${P.hhmm(a.start)}, ${esc(STATUS[a.status][0])}">
-          <span class="ev-t">${P.hhmm(a.start)}${compact ? '' : ' – ' + P.hhmm(a.end)}</span><b>${esc(c.name)}</b>${compact ? '' : `<span class="ev-s">${esc(s.name)}${a.status === 'concluido' ? ' · ' + (a.price ? brl(a.price) : 'plano') : ''}</span>`}${c.sub ? ic('crown', 'vc') : ''}</button>`;
+        return `<button class="ev st-${a.status} ${compact ? 'compact' : ''}" style="top:${y(a.start)}px;height:${h}px" data-act="appt" data-id="${a.id}" data-flash="${a.id}" aria-label="${esc(c.name)}, ${P.hhmm(a.start)}, ${esc(STATUS[a.status][0])}">
+          <span class="ev-t">${ic(STATUS[a.status][2])}${P.hhmm(a.start)}${compact ? '' : ' – ' + P.hhmm(a.end)}</span><b>${esc(c.name)}</b>${compact ? '' : `<span class="ev-s">${esc(s.name)}${a.status === 'concluido' ? ' · ' + (a.price ? brl(a.price) : 'plano') : ''}</span>`}${c.sub ? ic('crown', 'vc') : ''}</button>`;
       }).join('');
       const blks = P.blocks.filter(x => x.b === b.id).map(x => `<div class="blk" style="top:${y(x.start)}px;height:${(x.end - x.start) * ppm - 3}px">${ic(x.kind === 'intervalo' ? 'coffee' : 'lock')}${esc(x.label)} · ${P.hhmm(x.start)}–${P.hhmm(x.end)}</div>`).join('');
       return `<div class="tl-col" style="height:${Hh}px;background-size:100% ${60 * ppm}px;background-position:0 ${OFF + ((60 - P.OPEN % 60) % 60) * ppm}px">${blks}${evs}${nowL}</div>`;
@@ -354,7 +441,7 @@
     const sst = STATUS[a.status];
     if (apptMode === 'pay') {
       return `<div class="who">${avatar(c.name)}<div><h3>${esc(c.name)}</h3><p class="muted small">${esc(s.name)} · ${esc(b.name)}</p></div></div>
-        <div class="card card-hl" style="text-align:center"><span class="label">Total a cobrar</span><div class="num" style="font-size:38px;color:var(--brass)">${brl(price)}</div>${usesPlan ? `<p class="small muted">Coberto pelo ${esc(CLUB)} · comissão de assinatura sobre ${brl(s.price * P.SUB_REF)}</p>` : (st && !blocked ? `<p class="small muted">10% OFF de assinante aplicado</p>` : '')}</div>
+        <div class="card card-hl" style="text-align:center"><span class="label">Total a cobrar</span><div class="big-num" style="font-size:40px;margin:4px 0 2px">${brl(price)}</div>${usesPlan ? `<p class="small muted">Coberto pelo ${esc(CLUB)} · comissão de assinatura sobre ${brl(s.price * P.SUB_REF)}</p>` : (st && !blocked ? `<p class="small muted">10% OFF de assinante aplicado</p>` : '')}</div>
         <div class="pay">
           ${usesPlan ? `<button class="wide" data-act="pay" data-id="${a.id}" data-m="plano">${ic('crown')}Registrar uso do ${esc(CLUB)}<small>R$ 0,00 no caixa · baixa automática</small></button>` : ''}
           ${usesPlan ? '' : `<button data-act="pay" data-id="${a.id}" data-m="pix">${ic('pix')}Pix<small>QR na tela</small></button>
@@ -371,7 +458,7 @@
       faltou: `<button class="btn btn-primary" data-act="wa" data-k="falta" data-id="${a.id}">${ic('msg')}Remarcar pelo WhatsApp</button>`,
     }[a.status];
     return `<div class="who">${avatar(c.name)}<div style="min-width:0"><h3>${esc(c.name)}</h3><p class="muted small">${esc(c.phone)} · ${esc(unitName(a.u))}</p>
-        <div class="chips" style="margin-top:6px">${chip(sst[0], sst[1])}${st ? chip(ic('crown') + esc(CLUB), blocked ? 'bad' : 'brass') : ''}${cs.vip ? chip('VIP', 'warn') : ''}${a.isNew ? chip('Encaixe', 'info') : ''}</div></div></div>
+        <div class="chips" style="margin-top:6px"><span class="chip ${sst[1]}" data-flash="${a.id}">${ic(sst[2])}${sst[0]}</span>${st ? chip(ic('crown') + esc(CLUB), blocked ? 'bad' : 'brass') : ''}${cs.vip ? chip('VIP', 'warn') : ''}${a.isNew ? chip('Encaixe', 'info') : ''}</div></div></div>
       <div class="kv">
         <div><span class="label">Serviço</span><b>${esc(s.name)}</b></div>
         <div><span class="label">Horário</span><b>${P.hhmm(a.start)} – ${P.hhmm(a.end)}</b></div>
@@ -384,10 +471,10 @@
       <div class="kv k3">
         <div><span class="label">Visitas</span><b>${cs.n}</b></div>
         <div><span class="label">Última</span><b>${agoTxt(cs.lastAgo === 0 && a.status !== 'concluido' ? null : cs.lastAgo)}</b></div>
-        <div><span class="label">Frequência</span><b>${cs.freq ? `${cs.freq} dias` : '—'}</b></div>
+        <div><span class="label">Frequência</span><b>${cs.freq ? `${cs.freq} dias` : 'Sem histórico'}</b></div>
       </div>
       <div class="btn-row">${actions}</div>
-      <button class="link" data-act="client" data-id="${c.id}">Ver ficha completa do cliente →</button>`;
+      <button class="link" data-act="client" data-id="${c.id}">Ver ficha completa do cliente</button>`;
   }
   const openAppt = id => { apptMode = null; openSheet('Atendimento', () => apptBody(id)); };
 
@@ -410,7 +497,7 @@
     return `<div class="form">
       <label class="field"><span class="label">Cliente</span><input class="input" list="dlCli" data-input="naName" value="${esc(na.name)}" placeholder="Nome do cliente" autocomplete="off"></label>
       <datalist id="dlCli">${P.clients.filter(c => P.inU(c.unit)).slice(0, 400).map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
-      <p class="small muted" id="naHint">${match ? `Cliente cadastrado${match.sub ? ` · assinante ${esc(CLUB)}` : ''}` : na.name ? 'Novo cliente — será cadastrado agora' : 'Digite para buscar na base'}</p>
+      <p class="small muted" id="naHint">${match ? `Cliente cadastrado${match.sub ? ` · assinante ${esc(CLUB)}` : ''}` : na.name ? 'Novo cliente: será cadastrado agora' : 'Digite para buscar na base'}</p>
       <label class="field"><span class="label">Barbeiro</span><select class="input" data-change="naB">${bars.map(x => `<option value="${x.id}" ${x.id === na.b ? 'selected' : ''}>${esc(x.name)} · ${esc(unitName(x.unit))}</option>`).join('')}</select></label>
       <label class="field"><span class="label">Serviço</span><select class="input" data-change="naS">${svcs.map(x => `<option value="${x.id}" ${x.id === na.s ? 'selected' : ''}>${esc(x.name)} · ${brl(x.price)} · ${DV.fmt.dur(x.durationMin)}</option>`).join('')}</select></label>
       <label class="field"><span class="label">Horário livre hoje</span><select class="input" data-change="naT">${slots.length ? slots.map(t => `<option value="${t}" ${t === na.t ? 'selected' : ''}>${P.hhmm(t)}</option>`).join('') : '<option>Sem horários livres hoje</option>'}</select></label>
@@ -450,7 +537,7 @@
       const tg = tagsOf(c, st).slice(0, 2);
       return `<button class="crow" data-act="client" data-id="${c.id}">${avatar(c.name)}
         <span class="nm"><span>${esc(c.name)}</span>${tg.map(t => chip(esc(t[0]), t[1])).join('')}</span>
-        <span class="meta"><span><i>Última: </i><b>${agoTxt(st.lastAgo)}</b></span><span><i>A cada </i><b>${st.freq ? st.freq + ' dias' : '—'}</b></span><span><i>LTV </i><b>${brl0(st.ltv)}</b></span><span><i>Barbeiro: </i><b>${esc(P.barberById[st.favB].name)}</b></span></span>${ic('chev', 'chev')}</button>`;
+        <span class="meta"><span><i>Última: </i><b>${agoTxt(st.lastAgo)}</b></span><span><i>A cada </i><b>${st.freq ? st.freq + ' dias' : 'sem histórico'}</b></span><span><i>LTV </i><b>${brl0(st.ltv)}</b></span><span><i>Barbeiro: </i><b>${esc(P.barberById[st.favB].name)}</b></span></span>${ic('chev', 'chev')}</button>`;
     }).join('') + (l.length > cLim ? `<button class="btn btn-ghost btn-block more" data-act="moreCli">Mostrar mais (${l.length - cLim})</button>` : '');
   }
   function vClientes(p) {
@@ -477,17 +564,17 @@
     const next = st.nextIn != null ? P.dayDate(-st.nextIn) : null;
     const nextNote = st.nextIn == null ? '' : st.nextIn > 0
       ? `<div class="note brass">${ic('calendar')}<div><b>Próxima visita prevista: ${esc(fDay(next))}</b> (em ${st.nextIn} dia${st.nextIn > 1 ? 's' : ''}), pela frequência média de ${st.freq} dias.</div></div>`
-      : `<div class="note ${st.lapsed ? 'bad' : ''}">${ic('clock')}<div><b>Visita prevista para ${esc(fDay(next))} — ${st.nextIn === 0 ? 'é hoje' : `atrasada ${-st.nextIn} dia${st.nextIn < -1 ? 's' : ''}`}.</b> ${st.lapsed ? 'Bom momento para uma mensagem de retorno.' : ''}</div></div>`;
-    const sub = c.sub ? (() => { const s = c.sub, ss = SUBST[s.status]; return `<div class="card card-hl"><div class="card-t"><h3>${ic('crown')} ${esc(P.planById[c.plan].name)}</h3>${chip(ss[0], ss[1])}</div>
+      : `<div class="note ${st.lapsed ? 'bad' : ''}">${ic('clock')}<div><b>Visita prevista para ${esc(fDay(next))}, ${st.nextIn === 0 ? 'é hoje' : `atrasada ${-st.nextIn} dia${st.nextIn < -1 ? 's' : ''}`}.</b> ${st.lapsed ? 'Bom momento para uma mensagem de retorno.' : ''}</div></div>`;
+    const sub = c.sub ? (() => { const s = c.sub, ss = SUBST[s.status]; return `<div class="card card-hl"><div class="card-t"><h3>${ic('crown')} ${esc(P.planById[c.plan].name)}</h3><span class="chip ${ss[1]}" data-flash="${c.id}">${ss[0]}</span></div>
       <div class="kv"><div><span class="label">Mensalidade</span><b>${brl(P.planById[c.plan].price)}</b></div><div><span class="label">Forma (Asaas)</span><b>${METHOD[s.method]}</b></div><div><span class="label">Vencimento</span><b>Todo dia ${s.dueDay}</b></div><div><span class="label">Assinante há</span><b>${st.subMonths} ${st.subMonths > 1 ? 'meses' : 'mês'}</b></div></div>
       ${s.status !== 'confirmado' ? `<div class="btn-row" style="margin-top:12px"><button class="btn btn-ghost btn-sm" data-act="resend" data-id="${c.id}">${ic('send')}${s.resentAt ? 'Cobrança reenviada' : 'Reenviar cobrança'}</button><button class="btn btn-ghost btn-sm" data-act="webhook" data-id="${c.id}">${ic('zap')}Simular pagamento</button></div>` : ''}</div>`; })() : '';
     return `<div class="who">${avatar(c.name)}<div style="min-width:0"><h3>${esc(c.name)}</h3><p class="muted small">${esc(c.phone)} · ${esc(unitName(c.unit))} · aniversário ${String(c.birth.d).padStart(2, '0')}/${String(c.birth.m + 1).padStart(2, '0')}</p>
       <div class="chips" style="margin-top:6px">${tg.map(t => chip(esc(t[0]), t[1])).join('')}</div></div></div>
       <div class="kv k3">
         <div><span class="label">Visitas</span><b>${st.n}</b></div>
-        <div><span class="label">Frequência</span><b>${st.freq ? `a cada ${st.freq} dias` : '—'}</b></div>
+        <div><span class="label">Frequência</span><b>${st.freq ? `a cada ${st.freq} dias` : 'Sem histórico'}</b></div>
         <div><span class="label">LTV</span><b>${brl0(st.ltv)}</b></div>
-        <div><span class="label">Ticket avulso</span><b>${st.ticket ? brl(st.ticket) : '—'}</b></div>
+        <div><span class="label">Ticket avulso</span><b>${st.ticket ? brl(st.ticket) : 'Só plano'}</b></div>
         <div><span class="label">Preferido</span><b>${esc(P.barberById[st.favB].name)}</b></div>
         <div><span class="label">Cliente desde</span><b>${c.since ? P.dayDate(c.since).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '') : 'hoje'}</b></div>
       </div>
@@ -554,15 +641,15 @@
           <div class="small muted">${x.subN} atendimentos de assinante · ref. ${brl0(x.subVal)}</div>
           <div>${bar(tot ? x.fat / tot : 0)}<span class="small muted">${pct(tot ? x.fat / tot : 0)} do faturamento de serviços</span></div>
           <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding-top:10px;border-top:1px solid var(--line-soft)">
-            <div><span class="label">Comissão ${b.commission}%</span><div class="num" style="font-size:22px;color:var(--brass)">${brl(x.comm)}</div></div>
-            ${mt.closedAt ? chip(ic('check') + 'Fechado', 'ok') : chip('A pagar', 'warn')}</div>
+            <div><span class="label">Comissão ${b.commission}%</span><div class="num" style="font-size:22px">${brl(x.comm)}</div></div>
+            <span data-flash="${b.id}" class="chip ${mt.closedAt ? 'ok' : 'warn'}">${mt.closedAt ? ic('check') + 'Fechado' : ic('clock') + 'A pagar'}</span></div>
           <button class="btn btn-ghost btn-sm" data-act="barber" data-id="${b.id}">Horários, serviços e fechamento</button>
         </article>`;
       }).join('')}</div>
       <section class="card mt">
         <div class="card-t"><h3>Fechamento de comissão · ${esc(MES)}</h3>${chip('Parcial até hoje', 'info')}</div>
         <table class="tbl cards"><thead><tr><th>Barbeiro</th><th class="r">Faturado avulso</th><th class="r">Assinantes</th><th class="r">Base assinatura</th><th class="r">%</th><th class="r">Comissão</th><th></th></tr></thead>
-        <tbody>${bars.map(b => { const x = m.per[b.id]; return `<tr><td class="first">${esc(b.name)}</td><td class="r" data-l="Faturado avulso">${brl(x.fat)}</td><td class="r" data-l="Atend. assinantes">${x.subN}</td><td class="r" data-l="Base assinatura">${brl(x.subVal)}</td><td class="r" data-l="Comissão %">${b.commission}%</td><td class="r" data-l="A pagar"><b>${brl(x.comm)}</b></td><td class="r" data-l="Status">${P.meta[b.id].closedAt ? chip('Fechado', 'ok') : `<button class="btn btn-ghost btn-sm" data-act="closeComm" data-id="${b.id}">Fechar</button>`}</td></tr>`; }).join('')}</tbody>
+        <tbody>${bars.map(b => { const x = m.per[b.id]; return `<tr data-flash="${b.id}"><td class="first">${esc(b.name)}</td><td class="r" data-l="Faturado avulso">${brl(x.fat)}</td><td class="r" data-l="Atend. assinantes">${x.subN}</td><td class="r" data-l="Base assinatura">${brl(x.subVal)}</td><td class="r" data-l="Comissão %">${b.commission}%</td><td class="r" data-l="A pagar"><b>${brl(x.comm)}</b></td><td class="r" data-l="Status">${P.meta[b.id].closedAt ? chip('Fechado', 'ok') : `<button class="btn btn-ghost btn-sm" data-act="closeComm" data-id="${b.id}">Fechar</button>`}</td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td class="first">Total da equipe</td><td class="r" data-l="Faturado avulso">${brl(tot)}</td><td class="r" data-l="Atend. assinantes">${sum(bars, b => m.per[b.id].subN)}</td><td class="r" data-l="Base assinatura">${brl(sum(bars, b => m.per[b.id].subVal))}</td><td class="r" data-l=""></td><td class="r" data-l="Total a pagar">${brl(m.comm)}</td><td></td></tr></tfoot></table>
         <p class="small muted" style="margin-top:10px">${ic('check')} O faturado da equipe (${brl(tot)}) é a mesma “Receita de serviços” da DRE no Financeiro.</p>
       </section>`;
@@ -576,12 +663,12 @@
       <div class="kv"><div><span class="label">Hoje</span><b>${ap.filter(a => a.status !== 'faltou').length} agendados · ${ap.filter(a => a.status === 'concluido').length} feitos</b></div><div><span class="label">Faturado no mês</span><b>${brl(x.fat)}</b></div><div><span class="label">Atendimentos no mês</span><b>${x.n} (${x.subN} Club)</b></div><div><span class="label">Comissão</span><b>${b.commission}%</b></div></div>
       <div><div class="sec-t"><h2>Horários de trabalho</h2></div><div class="list">${[1, 2, 3, 4, 5, 6, 0].map(d => { const h = DV.business.hours[d]; return `<div class="row" style="min-height:44px"><span class="grow">${days[d]}</span><span class="end small">${h ? `${h[0]}–${h[1]}${lunch ? ` <span class="muted">· intervalo ${P.hhmm(lunch.start)}</span>` : ''}` : '<span class="muted">Folga</span>'}</span></div>`; }).join('')}</div></div>
       <div><div class="sec-t"><h2>Serviços que realiza</h2></div><div class="chips">${P.SERVICES.filter(s => !s.parts && P.offers(b, s.id)).map(s => chip(`${esc(s.name)} · ${brl0(s.price)}`, P.covers(PLAN, s) ? 'brass' : '')).join('')}</div><p class="small muted" style="margin-top:6px">Em amarelo: cobertos pelo ${esc(CLUB)}.</p></div>
-      <div class="card"><div class="card-t"><h3>Fechamento · ${esc(MES)}</h3>${mt.closedAt ? chip('Fechado', 'ok') : chip('Em aberto', 'warn')}</div>
+      <div class="card"><div class="card-t"><h3>Fechamento · ${esc(MES)}</h3><span data-flash="${b.id}" class="chip ${mt.closedAt ? 'ok' : 'warn'}">${mt.closedAt ? ic('check') + 'Fechado' : ic('clock') + 'Em aberto'}</span></div>
         <div class="list">
           <div class="row" style="min-height:40px"><span class="grow">Serviços avulsos</span><span class="end">${brl(x.fat)}</span></div>
           <div class="row" style="min-height:40px"><span class="grow">Assinantes (${x.subN} × ref. ${pct(P.SUB_REF)})</span><span class="end">${brl(x.subVal)}</span></div>
           <div class="row" style="min-height:40px"><span class="grow">Base de cálculo × ${b.commission}%</span><span class="end">${brl(x.fat + x.subVal)}</span></div>
-          <div class="row" style="min-height:48px"><b class="grow">Total a pagar</b><b class="end num" style="font-size:22px;color:var(--brass)">${brl(x.comm)}</b></div>
+          <div class="row" style="min-height:48px"><b class="grow">Total a pagar</b><b class="end big-num" style="font-size:26px">${brl(x.comm)}</b></div>
         </div>
         ${mt.closedAt ? `<p class="small muted">Fechado em ${mt.closedAt.toLocaleDateString('pt-BR')} · recibo gerado.</p>` : `<button class="btn btn-primary btn-block" data-act="closeComm" data-id="${b.id}">${ic('file')}Fechar comissão e gerar recibo</button>`}
       </div>`;
@@ -611,19 +698,19 @@
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><span class="eyebrow">Carro-chefe · a barbearia por assinatura</span><span class="asaas">Integrado ao Asaas</span></div>
         <h2>${esc(CLUB)}</h2>
         <p class="muted">${esc(PLAN ? (PLAN.subtitle || PLAN.name) : '')} · ${brl(PLAN ? PLAN.price : 0)}/${esc(PLAN ? PLAN.period : 'mês')} · ${esc(unitLabel())}</p>
-        <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-top:14px"><div><span class="label">Receita recorrente mensal (MRR)</span><div class="big">${brl0(ss.mrr)}</div></div><span class="muted small" style="padding-bottom:6px">${ss.n} assinantes ativos · ${brl0(m.subsRev)} já recebido em ${esc(MES)}</span></div>
+        <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-top:14px"><div><span class="label">Receita recorrente mensal (MRR)</span><div class="big-num">${cnum('s-mrr', ss.mrr)}</div></div><span class="muted small" style="padding-bottom:6px">${ss.n} assinantes ativos · ${brl0(m.subsRev)} já recebido em ${esc(MES)}</span></div>
       </section>
-      <div class="kpis k4 mt">
-        ${kpi('Assinantes ativos', 'users', ss.n, `${ss.pend} cobranças pendentes`)}
-        ${kpi('Churn 30 dias', 'trend', pct(ss.churn, 1), `${ss.canc} cancelamento${ss.canc === 1 ? '' : 's'}`)}
-        ${kpi('Inadimplência', 'alert', brl0(ss.lateV), `${ss.late} vencidas · ${pct(ss.mrr ? ss.lateV / ss.mrr : 0, 1)} do MRR`, ss.late ? 'bad' : '')}
-        ${kpi('Uso por assinante', 'scissors', `${nf(u.per)}×/mês`, `${u.visits} visitas nos últimos 30 dias`)}
-      </div>
+      <div class="mt">${kstrip([
+        kc('Assinantes ativos', cnum('s-n', ss.n, 'int'), `${ss.pend} cobranças pendentes`),
+        kc('Churn 30 dias', pct(ss.churn, 1), `${ss.canc} cancelamento${ss.canc === 1 ? '' : 's'}`),
+        kc('Inadimplência', cnum('s-late', ss.lateV), `${ss.late} vencidas · ${pct(ss.mrr ? ss.lateV / ss.mrr : 0, 1)} do MRR`, ss.late ? 'bad' : ''),
+        kc('Uso por assinante', `${nf(u.per)}×<small> por mês</small>`, `${u.visits} visitas nos últimos 30 dias`),
+      ], 'k4')}</div>
       <div class="grid g-2 mt">
         <section class="card">
           <div class="card-t"><h3>O plano dá lucro?</h3>${chip(u.net > 0 ? 'Sim' : 'Atenção', u.net > 0 ? 'ok' : 'bad')}</div>
           <div class="kv"><div><span class="label">Custo por visita p/ cliente</span><b>${brl(u.cpv)}</b></div><div><span class="label">Avulso (corte + barba)</span><b>${brl(u.avulso)}</b></div><div><span class="label">Comissão / assinante</span><b>${brl(u.commPerSub)}</b></div><div><span class="label">Sobra / assinante</span><b class="${u.net > 0 ? 'up' : 'down'}">${brl(u.net)}</b></div></div>
-          <p class="small muted" style="margin-top:10px">Cada assinante vem ${nf(u.per)}× por mês: paga ${brl(u.cpv)} por visita contra ${brl(u.avulso)} no avulso. Descontadas a comissão de assinatura e a taxa do Asaas, sobram ${brl(u.net)} por mês — receita garantida antes do mês começar.</p>
+          <p class="small muted" style="margin-top:10px">Cada assinante vem ${nf(u.per)}× por mês: paga ${brl(u.cpv)} por visita contra ${brl(u.avulso)} no avulso. Descontadas a comissão de assinatura e a taxa do Asaas, sobram ${brl(u.net)} por mês, com a receita garantida antes do mês começar.</p>
         </section>
         <section class="card">
           <div class="card-t"><h3>Assinantes por unidade</h3></div>
@@ -644,7 +731,7 @@
         <div class="seg">${[['todos', 'Todos'], ['vencido', 'Vencido'], ['pendente', 'Pendente'], ['confirmado', 'Confirmado']].map(([k, l]) => `<button class="${sf === k ? 'on' : ''}" data-act="sf" data-f="${k}">${l} <span class="n">${cnt(k)}</span></button>`).join('')}</div>
         <div class="list">${list.slice(0, sLim).map(c => {
           const s = c.sub, st = SUBST[s.status];
-          return `<div class="row" style="flex-wrap:wrap"><button class="row" style="border:0;flex:1 1 220px;padding:0;min-width:0" data-act="client" data-id="${c.id}">${avatar(c.name, 38)}<span class="grow"><span class="t">${esc(c.name)}</span><span class="d">${esc(unitName(c.unit))} · ${METHOD[s.method]} · vence dia ${s.dueDay}${s.status === 'vencido' ? ` · ${P.D - s.dueDay} dias de atraso` : ''}</span></span></button>
+          return `<div class="row" style="flex-wrap:wrap" data-flash="${c.id}"><button class="row" style="border:0;flex:1 1 220px;padding:0;min-width:0" data-act="client" data-id="${c.id}">${avatar(c.name, 38)}<span class="grow"><span class="t">${esc(c.name)}</span><span class="d">${esc(unitName(c.unit))} · ${METHOD[s.method]} · vence dia ${s.dueDay}${s.status === 'vencido' ? ` · ${P.D - s.dueDay} dias de atraso` : ''}</span></span></button>
             <span class="end" style="display:flex;align-items:center;gap:8px">${chip(st[0], st[1])}${s.status !== 'confirmado' ? `<button class="btn btn-ghost btn-sm" data-act="resend" data-id="${c.id}" ${s.resentAt ? 'disabled' : ''}>${s.resentAt ? 'Reenviada' : 'Reenviar cobrança'}</button>` : `<span class="small muted" style="min-width:68px;text-align:right">${s.paidThisMonth ? 'pago dia ' + s.paidDay : 'em dia'}</span>`}</span></div>`;
         }).join('') || '<p class="empty">Nenhum assinante neste filtro.</p>'}</div>
         ${list.length > sLim ? `<button class="btn btn-ghost btn-block more" data-act="moreSub">Mostrar mais (${list.length - sLim})</button>` : ''}
@@ -659,15 +746,15 @@
     const paid = P.bills.filter(b => P.inU(b.u) && b.paid);
     const cats = {}; m.opBills.forEach(b => { cats[b.cat] = (cats[b.cat] || 0) + b.value; });
     const maxC = Math.max(1, ...Object.values(cats));
-    const L = (l, v, o = {}) => `<tr class="${o.cls || ''}"><td class="first" style="${o.b ? 'font-weight:700' : ''}">${l}</td><td class="r ${v < 0 ? 'down' : ''}" data-l="${o.b ? '' : 'Valor'}" style="${o.b ? 'font-weight:700' : ''}">${brl(v)}</td><td class="r muted" data-l="% receita">${m.receita ? pct(Math.abs(v) / m.receita, 1) : '—'}</td></tr>`;
+    const L = (l, v, o = {}) => `<tr class="${o.cls || ''}"><td class="first" style="${o.b ? 'font-weight:700' : ''}">${l}</td><td class="r ${v < 0 ? 'down' : ''}" data-l="${o.b ? '' : 'Valor'}" style="${o.b ? 'font-weight:700' : ''}">${brl(v)}</td><td class="r muted" data-l="% receita">${m.receita ? pct(Math.abs(v) / m.receita, 1) : '0%'}</td></tr>`;
     return `<div class="ph"><div><h1 class="display">Financeiro</h1><p class="sub">${esc(unitLabel())} · ${esc(MES)}, dia 1 a ${P.D}</p></div></div>
       <div class="g-main">
         <div class="stack">
           <section class="card card-hl">
             <div class="card-t"><h3>Caixa de hoje</h3>${chip('Aberto', 'ok')}</div>
-            <div class="num" style="font-size:40px;color:var(--brass);line-height:1">${brl(d.total)}</div>
+            <div class="big-num" style="font-size:44px">${cnum('f-caixa', d.total, 'brl')}</div>
             <p class="small muted" style="margin:4px 0 14px">${d.done} atendimentos concluídos · ${d.movs.filter(x => x.label.startsWith('Venda')).length} vendas de produto</p>
-            <div class="stack" style="gap:12px">${parts.map(([k, l, i, t]) => `<div><div style="display:flex;justify-content:space-between;gap:8px" class="small"><span>${ic(i)} ${esc(l)}</span><b class="num">${brl(d.caixa[k])}</b></div>${bar(d.total ? d.caixa[k] / d.total : 0, t)}</div>`).join('')}</div>
+            <div class="stack" style="gap:12px">${parts.map(([k, l, i, t]) => `<div><div style="display:flex;justify-content:space-between;gap:8px" class="small"><span class="ico-l">${ic(i)}${esc(l)}</span><b class="num">${cnum('f-' + k, d.caixa[k], 'brl')}</b></div>${bar(d.total ? d.caixa[k] / d.total : 0, t)}</div>`).join('')}</div>
           </section>
           <section class="card">
             <div class="card-t"><h3>Movimentos de hoje</h3><span class="small muted">${d.movs.length}</span></div>
@@ -704,18 +791,18 @@
     const soldMonth = id => sum(P.sales.filter(s => s.p === id && s.ago < P.D && P.inU(s.u)), s => s.qty);
     const low = ps.filter(p => P.stockOf(p) < P.minOf(p));
     return `<div class="ph"><div><h1 class="display">Estoque</h1><p class="sub">${ps.length} produtos · ${esc(unitLabel())}</p></div></div>
-      <div class="kpis k4">
-        ${kpi('Valor em estoque', 'box', brl0(sum(ps, p => P.stockOf(p) * p.cost)), `a custo · ${brl0(sum(ps, p => P.stockOf(p) * p.price))} a preço de venda`)}
-        ${kpi('Itens em estoque', 'box', sum(ps, p => P.stockOf(p)), 'unidades')}
-        ${kpi('Vendas no mês', 'trend', brl0(m.prod), `${m.prodN} itens · margem ${pct(m.prod ? (m.prod - m.cmv) / m.prod : 0)}`)}
-        ${kpi('Para repor', 'alert', low.length, low.length ? low.map(p => esc(p.name)).slice(0, 2).join(', ') + (low.length > 2 ? '…' : '') : 'Tudo acima do mínimo', low.length ? 'bad' : '')}
-      </div>
+      ${kstrip([
+        kc('Valor em estoque', cnum('e-val', sum(ps, p => P.stockOf(p) * p.cost)), `a custo · ${brl0(sum(ps, p => P.stockOf(p) * p.price))} a preço de venda`),
+        kc('Itens em estoque', cnum('e-itens', sum(ps, p => P.stockOf(p)), 'int'), 'unidades'),
+        kc('Vendas no mês', cnum('e-vendas', m.prod), `${m.prodN} itens · margem ${pct(m.prod ? (m.prod - m.cmv) / m.prod : 0)}`),
+        kc('Para repor', cnum('e-low', low.length, 'int'), low.length ? low.map(p => esc(p.name)).slice(0, 2).join(', ') + (low.length > 2 ? '…' : '') : 'Tudo acima do mínimo', low.length ? 'bad' : ''),
+      ], 'k4')}
       <div class="grid g-3 mt">${ps.slice().sort((a, b) => (P.stockOf(a) < P.minOf(a) ? 0 : 1) - (P.stockOf(b) < P.minOf(b) ? 0 : 1)).map(p => {
         const st = P.stockOf(p), mn = P.minOf(p), isLow = st < mn, edge = st === mn;
         const mg = p.price ? (p.price - p.cost) / p.price : 0;
-        return `<article class="card prod ${isLow ? 'low' : ''}">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><h3>${esc(p.name)}</h3><span class="small muted">${esc(p.brand && p.brand !== '—' ? p.brand : 'Produto')} · ${soldMonth(p.id)} vendidos no mês</span></div>${isLow ? chip(ic('alert') + 'Repor', 'bad') : edge ? chip('No limite', 'warn') : chip('OK', 'ok')}</div>
-          <div class="stock"><b class="${isLow ? 'down' : ''}">${st}</b><span class="muted">un · mínimo ${mn}</span></div>
+        return `<article class="card prod ${isLow ? 'low' : ''}" data-flash="${p.id}">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><h3>${esc(p.name)}</h3><span class="small muted">${esc(p.brand && p.brand !== '—' ? p.brand : 'Produto')} · ${soldMonth(p.id)} vendidos no mês</span></div>${isLow ? chip(ic('alert') + 'Repor', 'bad') : edge ? chip(ic('minus') + 'No limite', 'warn') : chip(ic('check') + 'OK', 'ok')}</div>
+          <div class="stock"><b class="${isLow ? 'down' : ''}">${cnum('st-' + p.id, st, 'int')}</b><span class="muted">un · mínimo ${mn}</span></div>
           ${bar(Math.min(1, st / Math.max(1, mn * 2.5)), isLow ? 'bad' : edge ? 'warn' : 'ok')}
           <div class="mini"><div><span class="label">Preço</span><b>${brl(p.price)}</b></div><div><span class="label">Custo</span><b>${brl(p.cost)}</b></div><div><span class="label">Margem</span><b>${pct(mg)}</b></div></div>
           <div class="btn-row"><button class="btn btn-primary btn-sm" data-act="prod" data-k="venda" data-id="${p.id}" ${st ? '' : 'disabled'}>${ic('up')}Vender</button><button class="btn btn-ghost btn-sm" data-act="prod" data-k="entrada" data-id="${p.id}">${ic('down')}Entrada</button></div>
@@ -730,9 +817,9 @@
     const max = pq.k === 'venda' ? (P.S.unit === 'all' ? Math.max(...P.units.map(u => P.stockU[p.id][u.id])) : st) : 99;
     pq.qty = Math.max(1, Math.min(pq.qty, max || 1));
     return `<div class="who"><span class="ico-b">${ic('box')}</span><div><h3>${esc(p.name)}</h3><p class="small muted">${st} em estoque · ${esc(unitLabel())}</p></div></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="label">Quantidade</span><div class="stepper"><button data-act="pq" data-d="-1" aria-label="Menos">${ic('minus')}</button><b>${pq.qty}</b><button data-act="pq" data-d="1" aria-label="Mais">${ic('plus')}</button></div></div>
-      ${pq.k === 'venda' ? `<div class="card card-hl" style="text-align:center"><span class="label">Total</span><div class="num" style="font-size:32px;color:var(--brass)">${brl(p.price * pq.qty)}</div></div>
-        <div class="pay"><button data-act="sellGo" data-m="pix">${ic('pix')}Pix</button><button data-act="sellGo" data-m="cartao">${ic('card')}Cartão</button><button data-act="sellGo" data-m="dinheiro" class="wide" style="background:var(--surface);color:var(--text);border-color:var(--line)">${ic('cash')}Dinheiro</button></div>`
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span class="label">Quantidade</span><div class="stepper"><button data-act="pq" data-d="-1" aria-label="Menos" ${pq.qty <= 1 ? 'disabled' : ''}>${ic('minus')}</button><b aria-live="polite">${pq.qty}</b><button data-act="pq" data-d="1" aria-label="Mais" ${pq.qty >= (max || 1) ? 'disabled' : ''}>${ic('plus')}</button></div></div>
+      ${pq.k === 'venda' ? `<div class="card card-hl" style="text-align:center"><span class="label">Total</span><div class="big-num" style="font-size:36px;margin-top:4px">${cnum('pq-tot', p.price * pq.qty, 'brl')}</div></div>
+        <div class="pay"><button data-act="sellGo" data-m="pix">${ic('pix')}Pix</button><button data-act="sellGo" data-m="cartao">${ic('card')}Cartão</button><button data-act="sellGo" data-m="dinheiro" class="wide plain">${ic('cash')}Dinheiro</button></div>`
       : `<p class="small muted">Custo da entrada: ${brl(p.cost * pq.qty)}${P.S.unit === 'all' ? ' · vai para a unidade com menos estoque' : ''}.</p><button class="btn btn-primary btn-block" data-act="inGo">${ic('down')}Registrar entrada</button>`}`;
   }
 
@@ -760,7 +847,7 @@
           ${T('aval', 'Pedir avaliação no Google', 'Enviado 1h depois do atendimento concluído')}
           ${T('ret', 'Campanha automática de retorno', 'Dispara quando o cliente passa 45 dias sem vir')}
           ${T('bday', 'Parabéns no aniversário', 'Com cupom de 20% válido no mês')}</div></section>
-        <section class="card" style="grid-column:1/-1"><div class="card-t"><h3>Unidades</h3></div><div class="units">${P.units.map(u => `<div class="unit"><h4>${esc(u.name)}</h4><span class="small muted">${ic('pin')} ${esc(u.address || '')}</span><span class="small">${esc(u.phone || '')}</span><span class="stars">★ ${nf(u.rating)} no Google <span class="muted">(${u.reviewsCount || 0} avaliações)</span></span><span class="small muted">${P.barbers.filter(b => b.unit === u.id).map(b => esc(b.name)).join(', ') || 'Sem barbeiros'}</span></div>`).join('')}</div></section>
+        <section class="card" style="grid-column:1/-1"><div class="card-t"><h3>Unidades</h3></div><div class="units">${P.units.map(u => `<div class="uinfo"><h4>${esc(u.name)}</h4><span class="small muted">${ic('pin')} ${esc(u.address || '')}</span><span class="small">${esc(u.phone || '')}</span><span class="stars">★ ${nf(u.rating)} no Google <span class="muted">(${u.reviewsCount || 0} avaliações)</span></span><span class="small muted">${P.barbers.filter(b => b.unit === u.id).map(b => esc(b.name)).join(', ') || 'Sem barbeiros'}</span></div>`).join('')}</div></section>
       </div>`;
   }
 
@@ -775,33 +862,41 @@
     alerts: () => openSheet('Alertas', () => `<div class="list">${alertRows(alerts())}</div>`),
     unit: el => { P.act.setUnit(P.S.unit === el.dataset.id ? 'all' : el.dataset.id); refresh(); },
     appt: el => openAppt(el.dataset.id),
-    checkin: el => { P.act.checkIn(el.dataset.id); toast('Check-in feito · cliente em atendimento'); refresh(); },
+    checkin: el => busy(el, () => { P.act.checkIn(el.dataset.id); refresh(); flash(el.dataset.id); toast('Check-in feito: cliente em atendimento'); }),
     charge: el => { apptMode = 'pay'; refresh(); $('.sheet').scrollTop = 0; },
     charge0: () => { apptMode = null; refresh(); },
-    pay: el => {
+    pay: el => busy(el, () => {
       P.act.conclude(el.dataset.id, el.dataset.m);
       const a = P.appts.find(x => x.id === el.dataset.id);
       apptMode = null;
-      toast(el.dataset.m === 'plano' ? `Uso do ${CLUB} registrado` : `Concluído · ${brl(a.price)} via ${METHOD[el.dataset.m]}`);
-      refresh();
-    },
-    noshow: el => { P.act.noShow(el.dataset.id); toast('Falta registrada · horário liberado para encaixe'); refresh(); },
+      refresh(); flash(el.dataset.id);
+      toast(el.dataset.m === 'plano' ? `Uso do ${CLUB} registrado` : `Concluído: ${brl(a.price)} via ${METHOD[el.dataset.m]}`);
+    }),
+    noshow: el => busy(el, () => { P.act.noShow(el.dataset.id); refresh(); flash(el.dataset.id); toast('Falta registrada, horário liberado para encaixe'); }),
     wa: el => openWa(el.dataset.k, el.dataset.id),
     client: el => openClient(el.dataset.id),
     campaign: el => openCampaign(el.dataset.aud),
-    sendCamp: () => {
+    sendCamp: el => busy(el, () => {
       const n = camp.ids.length;
       if (camp.kind !== 'one') P.act.campaign(camp.ids);
-      closeSheet(); toast(n > 1 ? `Campanha enviada para ${n} clientes (simulação)` : 'Mensagem enviada pelo WhatsApp (simulação)'); render(true);
-    },
+      closeSheet(); render(true); toast(n > 1 ? `Campanha enviada para ${n} clientes (simulação)` : 'Mensagem enviada pelo WhatsApp (simulação)');
+    }),
     newAppt: el => openNew(el.dataset.name),
-    saveAppt: () => {
-      if (!na.name.trim()) { toast('Informe o nome do cliente'); const i = $('[data-input="naName"]'); if (i) i.focus(); return; }
+    saveAppt: el => {
+      const inp = $('[data-input="naName"]');
+      if (!na.name.trim()) {
+        toast('Informe o nome do cliente', 'warn');
+        if (inp) { inp.setAttribute('aria-invalid', 'true'); inp.focus(); }
+        return;
+      }
       if (na.t == null) return;
-      const a = P.act.addAppt({ name: na.name, b: na.b, s: na.s, start: na.t });
-      agB = a.b; closeSheet();
-      toast(`Agendado ${P.hhmm(a.start)} com ${P.barberById[a.b].name} · confirmação enviada`);
-      if (cur !== 'agenda') location.hash = '#agenda'; else render(true);
+      busy(el, () => {
+        const a = P.act.addAppt({ name: na.name, b: na.b, s: na.s, start: na.t });
+        agB = a.b; closeSheet();
+        toast(`Agendado às ${P.hhmm(a.start)} com ${P.barberById[a.b].name}, confirmação enviada`);
+        if (cur !== 'agenda') location.hash = '#agenda'; else render(true);
+        setTimeout(() => flash(a.id), 30);
+      });
     },
     pickB: el => { agB = el.dataset.id; render(true); },
     cf: el => { cf = el.dataset.f; cLim = 40; render(true); },
@@ -811,33 +906,32 @@
     resend: el => {
       const c = P.clientById[el.dataset.id];
       if (c.sub.resentAt) return;
-      P.act.resend(el.dataset.id);
-      toast(`Cobrança reenviada pelo Asaas · ${METHOD[c.sub.method]} por WhatsApp e e-mail`); refresh();
+      busy(el, () => { P.act.resend(el.dataset.id); refresh(); flash(c.id); toast(`Cobrança reenviada pelo Asaas: ${METHOD[c.sub.method]} por WhatsApp e e-mail`); });
     },
-    webhook: el => {
-      P.act.webhook(el.dataset.id);
-      toast(`Webhook do Asaas: pagamento confirmado · ${CLUB} liberado`); refresh();
-    },
+    webhook: el => busy(el, () => {
+      P.act.webhook(el.dataset.id); refresh(); flash(el.dataset.id);
+      toast(`Webhook do Asaas: pagamento confirmado, ${CLUB} liberado`);
+    }),
     barber: el => openSheet('Barbeiro', () => barberBody(el.dataset.id)),
-    closeComm: el => { P.act.closeCommission(el.dataset.id); toast(`Comissão de ${P.barberById[el.dataset.id].name} fechada · recibo gerado`); refresh(); },
-    payBill: el => { const b = P.bills.find(x => x.id === el.dataset.id); P.act.payBill(el.dataset.id); toast(`${b.desc} paga · ${brl(b.value)}`); refresh(); },
+    closeComm: el => busy(el, () => { P.act.closeCommission(el.dataset.id); refresh(); flash(el.dataset.id); toast(`Comissão de ${P.barberById[el.dataset.id].name} fechada, recibo gerado`); }),
+    payBill: el => busy(el, () => { const b = P.bills.find(x => x.id === el.dataset.id); P.act.payBill(el.dataset.id); refresh(); toast(`${b.desc} paga: ${brl(b.value)}`); }),
     prod: el => { pq = { id: el.dataset.id, k: el.dataset.k, qty: 1 }; openSheet(el.dataset.k === 'venda' ? 'Registrar venda' : 'Entrada de estoque', prodBody); },
-    pq: el => { pq.qty += +el.dataset.d; $('#sheetBody').innerHTML = prodBody(); },
-    sellGo: el => {
+    pq: el => { pq.qty += +el.dataset.d; refresh(); const b = $(`#sheetBody [data-act="pq"][data-d="${el.dataset.d}"]`); if (b && !b.disabled) b.focus({ preventScroll: true }); },
+    sellGo: el => busy(el, () => {
       const p = P.products.find(x => x.id === pq.id);
       const sold = P.act.sell(pq.id, pq.qty, el.dataset.m);
-      if (!sold) { toast('Sem estoque nesta unidade'); return; }
+      if (!sold) { toast('Sem estoque nesta unidade', 'warn'); return; }
       const s = P.sales[P.sales.length - 1];
       moves.push({ k: 'venda', qty: sold, name: p.name, u: s.u, t: P.hhmm(s.time), m: el.dataset.m, v: p.price * sold });
-      closeSheet(); toast(`Venda registrada · ${brl(p.price * sold)} no caixa`); render(true);
-    },
-    inGo: () => {
+      closeSheet(); render(true); flash(p.id); toast(`Venda registrada: ${brl(p.price * sold)} no caixa`);
+    }),
+    inGo: el => busy(el, () => {
       const p = P.products.find(x => x.id === pq.id);
       const u = P.act.stockIn(pq.id, pq.qty);
       const n = new Date();
       moves.push({ k: 'entrada', qty: pq.qty, name: p.name, u, t: `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}` });
-      closeSheet(); toast(`Entrada de ${pq.qty} un. registrada · ${unitName(u)}`); render(true);
-    },
+      closeSheet(); render(true); flash(p.id); toast(`Entrada de ${pq.qty} un. registrada em ${unitName(u)}`);
+    }),
     tog: el => { toggles[el.dataset.k] = !toggles[el.dataset.k]; el.setAttribute('aria-checked', toggles[el.dataset.k]); toast(toggles[el.dataset.k] ? 'Automação ativada' : 'Automação desativada'); },
     copy: () => {
       const l = bookLink();
@@ -857,9 +951,9 @@
     if (k === 'cq') { cq = e.target.value; cLim = 40; $('#clist').innerHTML = clientRows(); }
     if (k === 'tpl') { camp.tpl = e.target.value; const pv = $('#waPrev'); if (pv) pv.innerHTML = esc(fillTpl(camp.tpl, P.clientById[camp.ids[0]])) + `<small>${P.hhmm(P.NOW)} ✓✓</small>`; }
     if (k === 'naName') {
-      na.name = e.target.value;
+      na.name = e.target.value; e.target.removeAttribute('aria-invalid');
       const m = P.clients.find(c => P.norm(c.name) === P.norm(na.name).trim());
-      const h = $('#naHint'); if (h) h.textContent = m ? `Cliente cadastrado${m.sub ? ` · assinante ${CLUB}` : ''}` : na.name ? 'Novo cliente — será cadastrado agora' : 'Digite para buscar na base';
+      const h = $('#naHint'); if (h) h.textContent = m ? `Cliente cadastrado${m.sub ? ` · assinante ${CLUB}` : ''}` : na.name ? 'Novo cliente: será cadastrado agora' : 'Digite para buscar na base';
     }
   });
   document.addEventListener('change', e => {
@@ -870,7 +964,17 @@
     if (k === 'naS') { na.s = t.value; na.t = null; $('#sheetBody').innerHTML = newBody(); }
     if (k === 'naT') na.t = +t.value;
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetFn) closeSheet(); });
+  // Esc fecha; Tab fica preso dentro da folha aberta (aria-modal) para o foco não fugir para trás do fundo.
+  document.addEventListener('keydown', e => {
+    if (sheetW.hidden || sheetW.classList.contains('closing')) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...sheetW.querySelectorAll('button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(x => x.offsetParent);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
   window.addEventListener('hashchange', onRoute);
   let rT;
   window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(() => { if ($('#chart')) drawChart(); }, 150); });

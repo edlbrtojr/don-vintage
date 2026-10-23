@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="robots" content="noindex, nofollow">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0c0b0a">
+  <meta name="theme-color" content="#0f0d0b">
   <title>Agendar · Don Vintage Barbearia</title>
-  <link rel="stylesheet" href="assets/css/base.css?v=6">
-  <link rel="stylesheet" href="assets/css/agendar.css?v=6">
+  <link rel="stylesheet" href="assets/css/base.css?v=11">
+  <link rel="stylesheet" href="assets/css/agendar.css?v=11">
 </head>
-<body class="grain">
+<body>
   <div class="stage">
-    <main class="app" id="app" aria-live="polite">
+    <main class="app" id="app">
       <header class="app-head">
         <div class="app-bar">
           <button class="icon-btn" id="backBtn" aria-label="Voltar">
@@ -31,14 +31,9 @@
       <section class="app-body" id="body"></section>
 
       <footer class="app-foot" id="foot">
-        <div class="foot-sum" id="footSum"></div>
+        <div class="foot-sum" id="footSum" aria-live="polite"></div>
         <button class="btn btn-primary btn-block" id="nextBtn">Continuar</button>
       </footer>
-
-      <div class="overlay" id="overlay" hidden>
-        <div class="spinner" aria-hidden="true"></div>
-        <p id="overlayText">Confirmando…</p>
-      </div>
     </main>
 
     <aside class="side" id="side" aria-label="Resumo do agendamento"></aside>
@@ -46,7 +41,8 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="assets/js/data.js?v=6"></script>
-  <script src="assets/js/agendar.js?v=6"></script>
+  <script src="assets/js/data.js?v=11"></script>
+  <script src="assets/js/motion.js?v=11"></script>
+  <script src="assets/js/agendar.js?v=11"></script>
 </body>
 </html>
