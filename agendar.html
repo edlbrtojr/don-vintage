@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0b0a">
+  <title>Agendar · Don Vintage Barbearia</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=4">
+  <link rel="stylesheet" href="assets/css/agendar.css?v=4">
+</head>
+<body class="grain">
+  <div class="stage">
+    <main class="app" id="app" aria-live="polite">
+      <header class="app-head">
+        <div class="app-bar">
+          <button class="icon-btn" id="backBtn" aria-label="Voltar">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="app-title">
+            <span class="label" id="stepCount"></span>
+            <b id="stepTitle">Agendar</b>
+          </div>
+          <a class="icon-btn" href="site.html" aria-label="Fechar e voltar ao site">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </a>
+        </div>
+        <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+      </header>
+
+      <section class="app-body" id="body"></section>
+
+      <footer class="app-foot" id="foot">
+        <div class="foot-sum" id="footSum"></div>
+        <button class="btn btn-primary btn-block" id="nextBtn">Continuar</button>
+      </footer>
+
+      <div class="overlay" id="overlay" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="overlayText">Confirmando…</p>
+      </div>
+    </main>
+
+    <aside class="side" id="side" aria-label="Resumo do agendamento"></aside>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="assets/js/data.js?v=4"></script>
+  <script src="assets/js/agendar.js?v=4"></script>
+</body>
+</html>

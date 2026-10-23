@@ -1,0 +1,171 @@
+/* Don Vintage — base visual compartilhada (site, agendamento, painel, proposta).
+   Paleta da marca (Instagram/Canva da Don Vintage): preto + amarelo-ouro + branco,
+   com vinho/azul só na faixa do poste de barbeiro.
+   Mobile first: estilos base valem para ~360px; breakpoints só adicionam. */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0c0b0a;
+  --bg-2: #141210;
+  --surface: #1a1815;
+  --surface-2: #23201c;
+  --line: #34302a;
+  --line-soft: rgba(233, 220, 196, .08);
+  --text: #f3efe6;
+  --muted: #a69f93;
+  --faint: #6b655c;
+  --brass: #f2c21b;
+  --brass-2: #ffd84a;
+  --brass-ink: #0c0b0a;
+  --wine: #9b2c2c;
+  --wine-2: #c0453f;
+  --ok: #6fae7d;
+  --warn: #d9a441;
+  --bad: #d0584f;
+  --info: #6f9fc9;
+
+  --f-display: 'Fraunces', Georgia, serif;
+  --f-label: 'Oswald', 'Arial Narrow', sans-serif;
+  --f-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --r-sm: 8px;
+  --r: 14px;
+  --r-lg: 22px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --gutter: 16px;
+  --max: 1160px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.55 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* Grão de papel antigo sobre tudo — sutil o bastante para não atrapalhar leitura. */
+.grain::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 999;
+  opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+
+/* Tipografia */
+.display { font-family: var(--f-display); font-weight: 800; letter-spacing: -.01em; line-height: 1.05; }
+.eyebrow {
+  font-family: var(--f-label); font-weight: 500;
+  text-transform: uppercase; letter-spacing: .22em; font-size: 12px;
+  color: var(--brass);
+}
+.label { font-family: var(--f-label); text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); }
+.muted { color: var(--muted); }
+.brass { color: var(--brass); }
+h1, h2, h3 { margin: 0; }
+p { margin: 0; }
+
+/* Ornamento de divisória */
+.ornament { display: flex; align-items: center; gap: 12px; color: var(--brass); }
+.ornament::before, .ornament::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--brass) 50%, transparent); opacity: .5; }
+
+/* Botões */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 22px;
+  border-radius: 999px; border: 1px solid transparent;
+  font-family: var(--f-label); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; font-size: 14px;
+  text-decoration: none; transition: transform .15s, background .15s, border-color .15s, opacity .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--brass); color: var(--brass-ink); }
+.btn-primary:hover { background: var(--brass-2); }
+.btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
+.btn-ghost:hover { border-color: var(--brass); }
+.btn-wine { background: var(--wine); color: #fff; }
+.btn-block { width: 100%; }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+
+/* Cartões e chips */
+.card { background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line-soft);
+}
+.chip.ok { color: var(--ok); background: rgba(111, 174, 125, .12); }
+.chip.warn { color: var(--warn); background: rgba(217, 164, 65, .12); }
+.chip.bad { color: var(--bad); background: rgba(208, 88, 79, .12); }
+.chip.info { color: var(--info); background: rgba(111, 159, 201, .12); }
+.chip.brass { color: var(--brass); background: rgba(242, 194, 27, .12); }
+
+/* Avatar com iniciais (sem depender de fotos externas) */
+.avatar {
+  --s: 44px;
+  width: var(--s); height: var(--s); flex: none;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--f-display); font-weight: 600; font-size: calc(var(--s) * .38);
+  color: var(--brass-ink);
+  background: linear-gradient(135deg, var(--brass-2), var(--brass));
+  overflow: hidden;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Logo tipográfico */
+.logo { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+/* O selo usa o bigode do logo oficial (recortado de assets/img/logo-original.jpg).
+   O texto "DV" continua no HTML para leitores de tela e some só visualmente. */
+.logo-mark {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  border: 1.5px solid var(--brass);
+  background: #000 url('../img/bigode.png') center / 74% auto no-repeat;
+  color: transparent; font-size: 0; overflow: hidden;
+}
+.logo-text { display: flex; flex-direction: column; line-height: 1; }
+/* Logo oficial usa caixa-alta condensada; Oswald é o mais próximo no Google Fonts. */
+.logo-text b { font-family: var(--f-label); font-weight: 600; font-size: 19px; letter-spacing: .08em; text-transform: uppercase; }
+.logo-full { display: block; width: min(280px, 72vw); height: auto; }
+.logo-text small { font-family: var(--f-label); font-size: 9.5px; letter-spacing: .32em; color: var(--brass); text-transform: uppercase; margin-top: 3px; }
+
+/* Faixa do poste de barbeiro */
+.pole { height: 6px; background: repeating-linear-gradient(-45deg, var(--wine) 0 10px, var(--text) 10px 20px, #2b4a73 20px 30px, var(--text) 30px 40px); opacity: .85; }
+
+/* Formulários */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.input {
+  min-height: 50px; padding: 0 14px;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+  font-size: 16px; /* 16px evita zoom automático no iOS */
+}
+.input:focus { border-color: var(--brass); outline: none; }
+
+/* Selo "demonstração" — deixa claro que é protótipo de proposta */
+.demo-badge {
+  position: fixed; left: 12px; bottom: calc(12px + var(--safe-bottom)); z-index: 60;
+  font-family: var(--f-label); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+  padding: 6px 10px; border-radius: 999px;
+  background: rgba(20, 16, 13, .85); border: 1px solid var(--line); color: var(--muted);
+  text-decoration: none; backdrop-filter: blur(6px);
+}
+.demo-badge b { color: var(--brass); font-weight: 500; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}

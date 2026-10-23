@@ -1,0 +1,116 @@
+.p-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 18px; padding-bottom: 18px; }
+
+.p-hero { padding-top: 40px; padding-bottom: 48px; }
+.p-hero h1 { font-size: clamp(42px, 11vw, 92px); margin: 14px 0 18px; }
+.p-hero h1 em { font-style: italic; font-weight: 400; color: var(--brass-2); }
+.lead { font-size: 17px; color: var(--muted); max-width: 620px; }
+.p-hero-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.p-hero-cta .btn { flex: 1 1 200px; }
+.p-hint { font-size: 13px; margin-top: 14px; }
+.p-proof { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 20px; font-size: 13.5px; color: var(--muted); }
+.p-proof b { color: var(--brass); font-family: var(--f-display); font-size: 17px; margin-right: 4px; }
+
+.p-sec { padding-top: 40px; padding-bottom: 40px; }
+.h2 { font-size: clamp(30px, 7.5vw, 52px); margin: 10px 0 22px; max-width: 820px; }
+.center { text-align: center; margin-left: auto; margin-right: auto; justify-content: center; }
+.small { font-size: 13px; }
+
+/* Cartões de demo */
+.demo-grid { display: grid; gap: 12px; margin-top: 22px; }
+.demo-card {
+  position: relative; display: block; text-decoration: none;
+  padding: 22px 20px 20px; border-radius: var(--r-lg);
+  background: linear-gradient(160deg, var(--surface-2), var(--surface));
+  border: 1px solid var(--line);
+  transition: border-color .2s, transform .2s;
+}
+.demo-card:hover { border-color: var(--brass); transform: translateY(-2px); }
+.demo-card:first-child { border-color: rgba(242, 194, 27, .55); box-shadow: 0 0 0 1px rgba(242, 194, 27, .15), var(--shadow); }
+.demo-num { position: absolute; top: 18px; right: 20px; font-family: var(--f-display); font-size: 34px; font-weight: 800; color: var(--line); }
+.demo-ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: rgba(242, 194, 27, .12); margin-bottom: 14px; }
+.demo-ico svg, .mod-ico svg { width: 22px; height: 22px; fill: none; stroke: var(--brass); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.demo-card h3 { font-family: var(--f-display); font-size: 24px; font-weight: 600; margin-bottom: 6px; }
+.demo-card p { color: var(--muted); font-size: 14.5px; }
+.demo-go { display: inline-block; margin-top: 14px; font-family: var(--f-label); letter-spacing: .16em; text-transform: uppercase; font-size: 12.5px; color: var(--brass); }
+
+/* Antes x depois */
+.vs { display: grid; gap: 12px; }
+.vs-col { background: var(--surface); border-radius: var(--r); padding: 20px; border: 1px solid var(--line-soft); }
+.vs-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 10px; }
+.vs-list li { position: relative; padding-left: 28px; }
+.vs-list li::before { position: absolute; left: 0; top: 1px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.vs-list.bad li { color: var(--muted); }
+.vs-list.bad li::before { content: '✕'; color: var(--bad); background: rgba(208, 88, 79, .14); }
+.vs-list.ok li::before { content: '✓'; color: var(--ok); background: rgba(111, 174, 125, .14); }
+
+/* Módulos */
+.mod-grid { display: grid; gap: 10px; }
+.mod { display: flex; gap: 14px; padding: 18px; }
+.mod-ico { flex: none; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; }
+.mod h3 { font-family: var(--f-display); font-weight: 600; font-size: 19px; margin-bottom: 4px; }
+.mod-n { font-family: var(--f-label); font-size: 12px; color: var(--brass); letter-spacing: .1em; vertical-align: 3px; margin-right: 4px; }
+.mod p { font-size: 14.5px; }
+
+/* Asaas */
+.asaas { padding: 24px 20px; display: grid; gap: 24px; background: radial-gradient(120% 90% at 100% 0%, rgba(155, 44, 44, .22), transparent 60%), var(--surface); }
+.flow { list-style: none; padding: 0; margin: 0; counter-reset: f; display: grid; gap: 4px; }
+.flow li { counter-increment: f; position: relative; padding: 0 0 18px 46px; display: flex; flex-direction: column; gap: 2px; }
+.flow li::before { content: counter(f); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brass); color: var(--brass-ink); font-family: var(--f-display); font-weight: 800; }
+.flow li:not(:last-child)::after { content: ''; position: absolute; left: 15.5px; top: 34px; bottom: 2px; width: 1px; background: var(--line); }
+.flow b { font-family: var(--f-display); font-weight: 600; font-size: 17px; }
+.flow span { color: var(--muted); font-size: 14.5px; }
+
+/* Fases */
+.phases { display: grid; gap: 10px; }
+.phase { padding: 20px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg-2); }
+.phase-tag { font-family: var(--f-label); text-transform: uppercase; letter-spacing: .18em; font-size: 11.5px; color: var(--brass-ink); background: var(--brass); padding: 3px 10px; border-radius: 999px; }
+.phase h3 { font-family: var(--f-display); font-weight: 600; font-size: 21px; margin: 12px 0 6px; }
+.phase p { color: var(--muted); font-size: 14.5px; }
+
+/* Investimento */
+.invest { padding: 24px 20px; }
+.invest-grid { display: grid; gap: 10px; margin-bottom: 16px; }
+.invest-item { display: flex; flex-direction: column; gap: 4px; padding: 18px; border-radius: var(--r-sm); background: var(--bg-2); border: 1px solid var(--line-soft); }
+.invest-item strong { font-size: 34px; color: var(--brass-2); }
+.invest-item strong small { font-size: 15px; color: var(--muted); font-family: var(--f-body); font-weight: 400; }
+.tbd { font-style: italic; font-weight: 400; font-size: 26px; color: var(--muted); }
+
+/* Calculadora */
+.calc { padding: 20px; display: grid; gap: 16px; }
+.calc-in { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.calc-in output { font-size: 40px; color: var(--brass); line-height: 1; }
+#calc-n { width: 100%; accent-color: var(--brass); height: 32px; }
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.calc-col { padding: 14px; border-radius: var(--r-sm); background: var(--bg-2); border: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.calc-col.win { border-color: rgba(242, 194, 27, .45); }
+.calc-col strong { font-size: 22px; }
+.calc-col.win strong { color: var(--brass-2); }
+.calc-det { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.calc-det li { display: flex; justify-content: space-between; gap: 6px; }
+.calc-det b { color: var(--text); font-weight: 500; white-space: nowrap; }
+.calc-save { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; padding: 14px 16px; border-radius: var(--r-sm); background: var(--brass); color: var(--brass-ink); font-family: var(--f-label); text-transform: uppercase; letter-spacing: .12em; font-size: 12.5px; }
+.calc-save b { font-family: var(--f-display); text-transform: none; letter-spacing: 0; font-size: 22px; }
+
+.invest-inc { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; font-size: 14.5px; }
+.invest-inc li { padding-left: 24px; position: relative; }
+.invest-inc li::before { content: '✓'; position: absolute; left: 0; color: var(--brass); font-weight: 700; }
+
+.p-end { padding-bottom: 80px; }
+.p-end .h2 { margin-top: 22px; }
+.sign { text-align: center; margin-top: 30px; font-size: 13px; }
+.sign b { color: var(--text); font-weight: 600; }
+
+@media (min-width: 760px) {
+  .demo-grid { grid-template-columns: repeat(3, 1fr); }
+  .vs { grid-template-columns: 1fr 1fr; }
+  .mod-grid { grid-template-columns: repeat(2, 1fr); }
+  .asaas { grid-template-columns: 1fr 1fr; padding: 40px; align-items: center; }
+  .phases { grid-template-columns: repeat(3, 1fr); }
+  .invest { padding: 40px; }
+  .invest-grid { grid-template-columns: 1fr 1fr; }
+  .p-hero { padding-top: 80px; padding-bottom: 70px; }
+  .p-hero-cta .btn { flex: 0 0 auto; }
+}
+@media (min-width: 1040px) {
+  .mod-grid { grid-template-columns: repeat(3, 1fr); }
+}

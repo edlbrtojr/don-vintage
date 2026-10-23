@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14100d">
+  <title>Painel · Don Vintage</title>
+  <link rel="stylesheet" href="assets/css/base.css?v=4">
+  <link rel="stylesheet" href="assets/css/painel.css?v=4">
+</head>
+<body class="grain painel">
+  <aside class="side" aria-label="Menu do painel">
+    <a class="logo side-logo" href="#inicio">
+      <span class="logo-mark">DV</span>
+      <span class="logo-text"><b>Don Vintage</b><small>Painel de gestão</small></span>
+    </a>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot">
+      <span class="avatar" style="--s:36px">DV</span>
+      <div><b>Administrador</b><small class="muted">Proprietário</small></div>
+    </div>
+  </aside>
+
+  <header class="top">
+    <a class="logo" href="#inicio" aria-label="Início">
+      <span class="logo-mark">DV</span>
+      <span class="logo-text"><b>Don Vintage</b><small id="topTitle">Painel</small></span>
+    </a>
+    <button class="icon-btn" data-act="alerts" aria-label="Alertas">
+      <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="dot" id="alertDot"></span>
+    </button>
+  </header>
+
+  <main class="main" id="view" tabindex="-1"></main>
+
+  <nav class="bnav" id="bnav" aria-label="Navegação principal"></nav>
+
+  <div class="sheet-wrap" id="sheet" hidden>
+    <div class="sheet-bg" data-act="close"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <h2 id="sheetTitle"></h2>
+        <button class="icon-btn" data-act="close" aria-label="Fechar">
+          <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <a class="demo-badge" href="index.html"><b>Demo</b> · Proposta</a>
+
+  <script src="assets/js/data.js?v=4"></script>
+  <script src="assets/js/painel-dados.js?v=4"></script>
+  <script src="assets/js/painel.js?v=4"></script>
+</body>
+</html>
